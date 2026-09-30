@@ -41,6 +41,11 @@ def test_le_schema_comporte_toutes_les_tables(app):
     with app.app_context():
         tables = set(inspect(db.engine).get_table_names())
 
+    # `alembic_version` appartient à l'outillage (table de suivi), pas au
+    # schéma applicatif : une base déjà migrée localement l'a, une base neuve
+    # de CI non — les deux doivent passer.
+    tables.discard('alembic_version')
+
     assert tables == EXPECTED_TABLES
 
 
