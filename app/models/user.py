@@ -11,15 +11,15 @@ class UserAccount(db.Model):
     email = db.Column(db.String(150), unique=True)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(150))
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     last_login = db.Column(db.DateTime)
     two_fa_enabled = db.Column(db.Boolean, default=False, nullable=False)
     preferences = db.Column(db.JSON)  # PostgreSQL supporte JSON
     
     # Clés étrangères
-    department_id = db.Column(db.Integer, db.ForeignKey('department.department_id'))
-    role_id = db.Column(db.Integer, db.ForeignKey('role.role_id'), nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('department.department_id'), index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.role_id'), nullable=False, index=True)
     
     # Relations
     role = db.relationship('Role', back_populates='users')

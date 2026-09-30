@@ -13,7 +13,7 @@ class Notification(db.Model):
     action_url = db.Column(db.String(500))
     
     # Foreign key
-    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False, index=True)
     
     # Relation
     user = db.relationship('UserAccount', back_populates='notifications')

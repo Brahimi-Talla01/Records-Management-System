@@ -8,7 +8,7 @@ class TwoFactorCode(db.Model):
     
     code_id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(6), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     verified = db.Column(db.Boolean, default=False)

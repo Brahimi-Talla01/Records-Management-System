@@ -13,8 +13,8 @@ class DocumentVersion(db.Model):
     change_note = db.Column(db.Text)
     
     # Foreign keys
-    document_id = db.Column(db.Integer, db.ForeignKey('document.document_id', ondelete='CASCADE'), nullable=False)
-    uploaded_by = db.Column(db.Integer, db.ForeignKey('user_account.user_id', ondelete='SET NULL'))
+    document_id = db.Column(db.Integer, db.ForeignKey('document.document_id', ondelete='CASCADE'), nullable=False, index=True)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('user_account.user_id', ondelete='SET NULL'), index=True)
     
     # Relations
     document = db.relationship('Document', back_populates='versions')

@@ -5,7 +5,7 @@ class SecurityAlert(db.Model):
     __tablename__ = 'security_alert'
     
     alert_id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False, index=True)
     alert_type = db.Column(db.String(50), nullable=False)  # 'multiple_login_attempts', 'suspicious_location', etc.
     severity = db.Column(db.String(20), default='medium')  # 'low', 'medium', 'high'
     message = db.Column(db.Text, nullable=False)

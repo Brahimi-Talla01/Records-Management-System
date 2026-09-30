@@ -3,13 +3,17 @@ from extensions import db
 
 class Document(db.Model):
     __tablename__ = 'document'
+
+    __table_args__ = (
+        db.Index('ix_document_status_created_at', 'status', 'created_at'),
+    )
     
     document_id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(250), nullable=False)
     description = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
     status = db.Column(db.String(50), nullable=False, default='active')
-    confidentiality_level = db.Column(db.String(50), nullable=False, default='internal')
+    confidentiality_level = db.Column(db.String(50), nullable=False, default='internal', index=True)
     retention_period = db.Column(db.Integer)
     is_encrypted = db.Column(db.Boolean, default=False)
     ocr_text = db.Column(db.Text)
@@ -19,19 +23,22 @@ class Document(db.Model):
     department_id = db.Column(
         db.Integer, 
         db.ForeignKey('department.department_id', ondelete='SET NULL'),
-        nullable=True
+        nullable=True,
+        index=True,
     )
     
     doc_type_id = db.Column(
         db.Integer, 
         db.ForeignKey('doc_type.doc_type_id', ondelete='RESTRICT'), 
-        nullable=False
+        nullable=False,
+        index=True,
     )
     
     folder_id = db.Column(
         db.Integer, 
         db.ForeignKey('folder.folder_id', ondelete='SET NULL'),
-        nullable=True
+        nullable=True,
+        index=True,
     )
 
     # Relations - IMPORTANT: utilisez back_populates au lieu de backref

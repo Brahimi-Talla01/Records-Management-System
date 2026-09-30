@@ -7,7 +7,7 @@ class Folder(db.Model):
     folder_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    parent_folder_id = db.Column(db.Integer, db.ForeignKey('folder.folder_id'), nullable=True)
+    parent_folder_id = db.Column(db.Integer, db.ForeignKey('folder.folder_id'), nullable=True, index=True)
     
     # Relations
     # Self-referential relationship pour la hiérarchie

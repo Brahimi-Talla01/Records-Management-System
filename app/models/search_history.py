@@ -8,10 +8,10 @@ class SearchHistory(db.Model):
     query = db.Column(db.Text)
     filters = db.Column(db.JSON)  # PostgreSQL supporte JSON
     results_count = db.Column(db.Integer)
-    searched_at = db.Column(db.DateTime, default=datetime.utcnow)
+    searched_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     
     # Foreign key
-    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False, index=True)
     
     # Relation
     user = db.relationship('UserAccount', back_populates='search_history')

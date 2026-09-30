@@ -8,6 +8,7 @@ instance/
 tests/
 *.md
 uploads/
-migrations/
+# migrations/ ne doit PAS être ignoré : docker-entrypoint.sh exécute
+# `flask_migrate.upgrade()` (stamp baseline + index P0.9) au démarrage.
 Dockerfile
 .dockerignore
