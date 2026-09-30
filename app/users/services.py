@@ -1,10 +1,10 @@
 from flask import current_app
 from sqlalchemy import or_
+from app.services import audit_service
 from extensions import db
 from app.models.user import UserAccount
 from app.models.role import Role
 from app.models.department import Department
-from app.models.audit import AuditLog
 from app.users.repositories import UserRepository
 from datetime import datetime
 import csv
@@ -126,13 +126,12 @@ class UserService:
             db.session.commit()
             
             # Logger l'action
-            from app.models.audit import AuditLog
-            AuditLog.log_action(
-                user_id=created_by_id,
-                action='user_created',
-                object_type='user_account',
+            audit_service.log(
+                'user_created',
+                'user_account',
                 object_id=user.user_id,
-                details={'username': user.username, 'email': user.email}
+                details={'username': user.username, 'email': user.email},
+                user_id=created_by_id,
             )
             
             return user.to_dict(), None
@@ -183,13 +182,12 @@ class UserService:
             db.session.commit()
             
             # Logger l'action
-            from app.models.audit import AuditLog
-            AuditLog.log_action(
-                user_id=updated_by_id,
-                action='user_updated',
-                object_type='user_account',
+            audit_service.log(
+                'user_updated',
+                'user_account',
                 object_id=user.user_id,
-                details={'changes': data}
+                details={'changes': data},
+                user_id=updated_by_id,
             )
             
             return user.to_dict(), None
@@ -214,13 +212,12 @@ class UserService:
             db.session.commit()
             
             # Logger l'action
-            from app.models.audit import AuditLog
-            AuditLog.log_action(
-                user_id=deleted_by_id,
-                action='user_deleted',
-                object_type='user_account',
+            audit_service.log(
+                'user_deleted',
+                'user_account',
                 object_id=user.user_id,
-                details={'username': user.username}
+                details={'username': user.username},
+                user_id=deleted_by_id,
             )
             
             return True, "Utilisateur supprimé avec succès"
@@ -240,12 +237,11 @@ class UserService:
             db.session.commit()
             
             # Logger l'action
-            from app.models.audit import AuditLog
-            AuditLog.log_action(
+            audit_service.log(
+                'password_reset_by_admin',
+                'user_account',
+                object_id=user.user_id,
                 user_id=reset_by_id,
-                action='password_reset_by_admin',
-                object_type='user_account',
-                object_id=user.user_id
             )
             
             # Envoyer un email de notification

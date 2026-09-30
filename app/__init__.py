@@ -79,6 +79,10 @@ def create_app(config_name='default'):
     from app.errors import register_error_handlers
     register_error_handlers(application)
 
+    # Journal d'audit : filet de sécurité sur toutes les mutations (POST/PUT/PATCH/DELETE)
+    from app.services.audit_service import register_audit_hook
+    register_audit_hook(application)
+
     # Enregistrer les blueprints
     from app.auth.routes import auth_bp
     application.register_blueprint(auth_bp)

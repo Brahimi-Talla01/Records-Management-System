@@ -5,6 +5,7 @@ from app.models.two_factor import TwoFactorCode
 from app.models.password_reset import PasswordResetToken
 from app.models.security_alert import SecurityAlert
 from app.models.audit import AuditLog
+from app.services import audit_service
 from app.users.repositories import UserRepository
 from datetime import datetime, timedelta
 
@@ -27,7 +28,8 @@ class AuthService:
             return None, False, "Compte désactivé"
 
         if not user.check_password(password):
-            AuthService._log_failed_attempt(username_or_email, ip_address, 'invalid_password')
+            AuthService._log_failed_attempt(username_or_email, ip_address,
+                                            'invalid_password', user.user_id)
             AuthService._check_multiple_failed_attempts(user.user_id, ip_address)
             return None, False, "Identifiants invalides"
 
@@ -162,20 +164,27 @@ class AuthService:
         EmailService.send_password_reset(user.email, reset_url)
 
     @staticmethod
-    def _log_failed_attempt(username, ip_address, reason):
-        """Enregistre une tentative de connexion échouée."""
-        audit = AuditLog(
-            action='login_failed',
-            object_type='authentication',
+    def _log_failed_attempt(username, ip_address, reason, user_id=None):
+        """
+        Enregistre une tentative de connexion échouée.
+
+        `user_id` est renseigné quand le compte existe (mot de passe invalide) :
+        sans lui, `_check_multiple_failed_attempts()` ne retrouve JAMAIS ses
+        propres lignes (filtre `user_id == …`) et l'alerte de sécurité n'était
+        jamais créée. Reste `None` pour un utilisateur inconnu (pas d'auteur
+        attribuable, anti-énumération).
+        """
+        audit_service.log(
+            'login_failed',
+            'authentication',
             details={
                 'username': username,
                 'ip_address': ip_address,
                 'reason': reason,
                 'timestamp': datetime.utcnow().isoformat()
-            }
+            },
+            user_id=user_id,
         )
-        db.session.add(audit)
-        db.session.commit()
 
     @staticmethod
     def _check_multiple_failed_attempts(user_id, ip_address):
@@ -205,12 +214,5 @@ class AuthService:
 
     @staticmethod
     def _log_audit(user_id, action, object_type, object_id):
-        """Enregistre une action dans le journal d'audit."""
-        audit = AuditLog(
-            user_id=user_id,
-            action=action,
-            object_type=object_type,
-            object_id=object_id
-        )
-        db.session.add(audit)
-        db.session.commit()
+        """Enregistre une action dans le journal d'audit (service partagé)."""
+        audit_service.log(action, object_type, object_id=object_id, user_id=user_id)

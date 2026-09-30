@@ -34,16 +34,3 @@ class AuditLog(db.Model):
             } if self.user else None
         }
     
-    @classmethod
-    def log_action(cls, user_id, action, object_type, object_id=None, details=None):
-        """Enregistre une action dans le journal d'audit"""
-        audit = cls(
-            user_id=user_id,
-            action=action,
-            object_type=object_type,
-            object_id=object_id,
-            details=details  # Pas besoin de json.dumps avec PostgreSQL
-        )
-        db.session.add(audit)
-        db.session.commit()
-        return audit
