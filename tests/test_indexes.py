@@ -143,6 +143,24 @@ def test_index_couvre_les_listes_de_documents():
 # ---------------------------------------------------------------------------
 
 
+def existing_ix_indexes():
+    """Index `ix_*` réellement présents — requête adaptée au dialecte.
+
+    SQLite lit `sqlite_master`, PostgreSQL lit `pg_indexes` : la suite doit
+    passer dans les deux cas (SQLite en local, `postgres:16` en CI).
+    """
+    if db.engine.dialect.name == 'postgresql':
+        rows = db.session.execute(text(
+            "SELECT indexname FROM pg_indexes "
+            "WHERE schemaname = current_schema() AND indexname LIKE 'ix_%'"
+        )).fetchall()
+    else:
+        rows = db.session.execute(text(
+            "SELECT name FROM sqlite_master WHERE type = 'index' "
+            "AND name LIKE 'ix_%'")).fetchall()
+    return {row[0] for row in rows}
+
+
 def test_sql_des_index_s_execute_et_est_idempotent():
     """Le DDL tourne sur SQLite (tests) et Postgres (prod), deux fois de suite."""
     migration = load_migration()
@@ -152,11 +170,7 @@ def test_sql_des_index_s_execute_et_est_idempotent():
         db.session.execute(text(statement))  # IF NOT EXISTS : pas d'erreur
     db.session.commit()
 
-    created = {row[0] for row in db.session.execute(text(
-        "SELECT name FROM sqlite_master WHERE type = 'index' "
-        "AND name LIKE 'ix_%'")).fetchall()}
-
-    assert EXPECTED <= created
+    assert EXPECTED <= existing_ix_indexes()
 
 
 def test_downgrade_retire_les_index():
@@ -172,8 +186,4 @@ def test_downgrade_retire_les_index():
         db.session.execute(text(statement))
     db.session.commit()
 
-    remaining = {row[0] for row in db.session.execute(text(
-        "SELECT name FROM sqlite_master WHERE type = 'index' "
-        "AND name LIKE 'ix_%'")).fetchall()}
-
-    assert remaining & EXPECTED == set()
+    assert existing_ix_indexes() & EXPECTED == set()

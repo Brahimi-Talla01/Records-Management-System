@@ -1,12 +1,9 @@
-from flask import current_app
 from sqlalchemy import or_
 from app.services import audit_service
 from extensions import db
 from app.models.user import UserAccount
 from app.models.role import Role
 from app.models.department import Department
-from app.users.repositories import UserRepository
-from datetime import datetime
 import csv
 import io
 

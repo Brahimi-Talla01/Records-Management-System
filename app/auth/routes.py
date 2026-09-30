@@ -13,7 +13,6 @@ Changements vs version JWT :
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.exceptions import HTTPException
 
-from app.models.user import UserAccount
 from app.models.security_alert import SecurityAlert
 from app.auth.services import AuthService
 from app.services import session_service

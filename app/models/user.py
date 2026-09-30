@@ -1,6 +1,5 @@
 from extensions import db, bcrypt
 from datetime import datetime
-import json
 
 class UserAccount(db.Model):
     __tablename__ = 'user_account'

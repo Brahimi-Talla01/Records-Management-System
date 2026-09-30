@@ -30,9 +30,11 @@ EXPECTED_TABLES = {
 
 
 def test_connexion_operatoire(app):
+    """`SELECT 1` passe, quel que soit le dialecte (SQLite en local,
+    PostgreSQL dans la CI et en production)."""
     with app.app_context():
         assert db.session.execute(text('SELECT 1')).scalar() == 1
-        assert db.engine.url.drivername.startswith('sqlite')
+        assert db.engine.dialect.name in {'sqlite', 'postgresql'}
 
 
 def test_le_schema_comporte_toutes_les_tables(app):

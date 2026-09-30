@@ -38,9 +38,14 @@ def test_configuration_des_uploads():
 
 
 def test_configuration_de_test():
-    """Le profil de test ne doit dépendre ni de Postgres, ni de Redis, ni de SMTP."""
+    """Le profil de test ne doit dépendre ni de Redis, ni de SMTP.
+
+    La base, elle, est SQLite en local mais bascule sur PostgreSQL quand la
+    CI définit `TEST_DATABASE_URL` (le reste du contrat reste identique).
+    """
     assert TestingConfig.TESTING is True
-    assert TestingConfig.SQLALCHEMY_DATABASE_URI.startswith('sqlite://')
+    expected_uri = os.environ.get('TEST_DATABASE_URL') or 'sqlite://'
+    assert TestingConfig.SQLALCHEMY_DATABASE_URI == expected_uri
     assert TestingConfig.REDIS_URL is None
     assert TestingConfig.RATELIMIT_ENABLED is False
     assert TestingConfig.MAIL_SUPPRESS_SEND is True

@@ -10,3 +10,6 @@
 
 pytest==8.3.4
 pytest-cov==6.0.0
+
+# Lint (P0.7 — CI GitHub Actions) : `ruff check .` (règles E9 + F, voir ruff.toml)
+ruff==0.16.9

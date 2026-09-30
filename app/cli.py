@@ -6,7 +6,6 @@ Le groupe est enregistré dans `create_app()` : `flask --app wsgi seed all`.
 """
 
 import click
-from flask import current_app
 from flask.cli import with_appcontext
 
 from app import seeds

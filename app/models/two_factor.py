@@ -1,6 +1,5 @@
 from extensions import db
 from datetime import datetime, timedelta
-import secrets
 import random
 
 class TwoFactorCode(db.Model):

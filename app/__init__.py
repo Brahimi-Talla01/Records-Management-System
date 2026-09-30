@@ -71,9 +71,12 @@ def create_app(config_name='default'):
     from app.services.session_service import init_session_store
     init_session_store(application)
 
-    # IMPORTANT: Importer tous les modèles APRÈS l'initialisation de db
+    # IMPORTANT: Importer tous les modèles APRÈS l'initialisation de db.
+    # Cet import a un effet de bord : il enregistre chaque `Table` dans le
+    # metadata de `extensions.db`, sans quoi `create_all()` ne créerait que
+    # les tables déjà importées ailleurs (et donc des schémas incomplets).
     with application.app_context():
-        import app.models
+        import app.models  # noqa: F401  (enregistrement des modèles, volontaire)
 
     # Enveloppe d'erreur standardisée ({"error","code","details"}) + normalisation
     from app.errors import register_error_handlers
