@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 print("Test de connexion à la base de données...")
-print(f"DATABASE_URL: {os.getenv('DATABASE_URL')[:50]}...")
+print(f"DATABASE_URL: {(os.getenv('DATABASE_URL') or '')[:50]}...")
 
 try:
     from app import create_app

@@ -12,7 +12,8 @@ from app.models.doc_type import DocType
 
 def init_database():
     """Initialise la base de données avec des données de base"""
-    app = create_app('development')
+    # En conteneur : FLASK_ENV=production — en local : development
+    app = create_app(os.environ.get('FLASK_ENV', 'development'))
     
     with app.app_context():
         print("Initialisation de la base de données...")
@@ -95,6 +96,11 @@ def init_database():
             print("\n👤 Création de l'utilisateur admin...")
             admin_role = Role.query.filter_by(name='Admin').first()
             admin_dept = Department.query.filter_by(code='ADMIN').first()
+            if admin_role is None or admin_dept is None:
+                raise RuntimeError(
+                    "Seed incomplet : rôle 'Admin' ou département 'ADMIN' introuvable "
+                    "(le seed des rôles/départements doit être exécuté avant l'admin)."
+                )
             
             admin_user = UserAccount(
                 matricule='ADMIN001',
@@ -112,7 +118,7 @@ def init_database():
             print("   ✓ Utilisateur admin créé")
             print("\n" + "="*60)
             print("   Identifiants de connexion:")
-            print("   Username: admin")
+            print("   Username: admin (à changer impérativement)")
             print("   Password: Admin@2024")
             print("   ⚠️  CHANGEZ CE MOT DE PASSE EN PRODUCTION!")
             print("="*60)

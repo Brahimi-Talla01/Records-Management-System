@@ -28,6 +28,8 @@ class Folder(db.Model):
         }
         
         if include_children:
-            data['subfolders'] = [f.to_dict() for f in self.subfolders]
+            # `subfolders` est créé par le backref du relationship `parent` :
+            # pyright ne le voit pas à la déclaration (attribut dynamique SQLAlchemy).
+            data['subfolders'] = [f.to_dict() for f in self.subfolders]  # pyright: ignore[reportAttributeAccessIssue]
         
         return data
