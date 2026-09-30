@@ -95,6 +95,10 @@ def create_app(config_name='default'):
     application.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     application.register_blueprint(search_bp, url_prefix='/api/search')
 
+    # Commandes CLI (flask seed roles|folders|doctypes|departments|admin|demo|all)
+    from app.cli import register_commands
+    register_commands(application)
+
     # Route de santé
     @application.route('/health')
     def health():

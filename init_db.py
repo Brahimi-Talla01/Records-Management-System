@@ -1,129 +1,58 @@
-import os
-from dotenv import load_dotenv 
+"""
+Initialisation de la base de données — point d'entrée historique.
 
+Depuis P0.6 (plan 07), la logique vit dans `app/seeds.py` (idempotente) et est
+exposable en CLI :
+
+    flask seed all          # équivalent de `python init_db.py`
+    flask seed admin        # uniquement le compte admin
+
+Ce module reste l'entrée utilisée par `docker-entrypoint.sh` et par un
+démarrage manuel ; il ne fait que déléguer.
+"""
+
+import os
 
 from app import create_app
+from app import seeds
 from extensions import db
-from app.models.role import Role
-from app.models.department import Department
-from app.models.folder import Folder
-from app.models.user import UserAccount
-from app.models.doc_type import DocType
+
 
 def init_database():
-    """Initialise la base de données avec des données de base"""
+    """Crée les tables si besoin, puis applique tous les seeds (idempotent)."""
     # En conteneur : FLASK_ENV=production — en local : development
     app = create_app(os.environ.get('FLASK_ENV', 'development'))
-    
+
     with app.app_context():
         print("Initialisation de la base de données...")
-        
-        # 1. Créer les rôles
-        if Role.query.count() == 0:
-            print("\n📋 Création des rôles...")
-            roles = [
-                Role(name='Admin', description='Administrateur système avec tous les droits'),
-                Role(name='Prof', description='Professeur avec accès aux documents académiques'),
-                Role(name='Etudiant', description='Étudiant avec accès limité'),
-                Role(name='Secretaire', description='Secrétaire avec accès administratif')
-            ]
-            db.session.add_all(roles)
-            db.session.commit()
-            print(f"   ✓ {len(roles)} rôles créés")
-        
-        # 2. Créer les types de documents
-        if DocType.query.count() == 0:
-            print("\n📄 Création des types de documents...")
-            doc_types = [
-                DocType(name='Thèse', description='Thèse de doctorat', default_retention_days=3650),
-                DocType(name='Mémoire', description='Mémoire de master', default_retention_days=1825),
-                DocType(name='Rapport', description='Rapport de stage ou projet', default_retention_days=730),
-                DocType(name='Article', description='Article scientifique', default_retention_days=1825),
-                DocType(name='Cours', description='Support de cours', default_retention_days=1095),
-                DocType(name='Administratif', description='Document administratif', default_retention_days=2555)
-            ]
-            db.session.add_all(doc_types)
-            db.session.commit()
-            print(f"   ✓ {len(doc_types)} types de documents créés")
-        
-        # 3. Créer les dossiers principaux
-        if Folder.query.count() == 0:
-            print("\n📁 Création des dossiers...")
-            folders = [
-                Folder(name='Archives Académiques'),
-                Folder(name='Documents Administratifs'),
-                Folder(name='Bibliothèque Numérique'),
-                Folder(name='Thèses et Mémoires')
-            ]
-            db.session.add_all(folders)
-            db.session.commit()
-            print(f"   ✓ {len(folders)} dossiers créés")
-        
-        # 4. Créer les départements
-        if Department.query.count() == 0:
-            print("\n🏛️ Création des départements...")
-            folder_admin = Folder.query.filter_by(name='Documents Administratifs').first()
-            
-            departments = [
-                Department(
-                    name='Informatique', 
-                    code='INFO', 
-                    description='Département d\'Informatique et Sciences du Numérique',
-                    folder_id=folder_admin.folder_id if folder_admin else None
-                ),
-                Department(
-                    name='Mathématiques', 
-                    code='MATH', 
-                    description='Département de Mathématiques et Statistiques'
-                ),
-                Department(
-                    name='Physique', 
-                    code='PHYS', 
-                    description='Département de Physique'
-                ),
-                Department(
-                    name='Administration', 
-                    code='ADMIN', 
-                    description='Administration générale de l\'université'
-                )
-            ]
-            db.session.add_all(departments)
-            db.session.commit()
-            print(f"   ✓ {len(departments)} départements créés")
-        
-        # 5. Créer l'utilisateur admin par défaut
-        if UserAccount.query.filter_by(username='admin').first() is None:
-            print("\n👤 Création de l'utilisateur admin...")
-            admin_role = Role.query.filter_by(name='Admin').first()
-            admin_dept = Department.query.filter_by(code='ADMIN').first()
-            if admin_role is None or admin_dept is None:
-                raise RuntimeError(
-                    "Seed incomplet : rôle 'Admin' ou département 'ADMIN' introuvable "
-                    "(le seed des rôles/départements doit être exécuté avant l'admin)."
-                )
-            
-            admin_user = UserAccount(
-                matricule='ADMIN001',
-                username='admin',
-                email='admin@uniarchive.edu',
-                full_name='Administrateur Principal',
-                role_id=admin_role.role_id,
-                department_id=admin_dept.department_id,
-                is_active=True
-            )
-            admin_user.set_password('Admin@2024')
-            
-            db.session.add(admin_user)
-            db.session.commit()
-            print("   ✓ Utilisateur admin créé")
-            print("\n" + "="*60)
-            print("   Identifiants de connexion:")
-            print("   Username: admin (à changer impérativement)")
-            print("   Password: Admin@2024")
-            print("   ⚠️  CHANGEZ CE MOT DE PASSE EN PRODUCTION!")
-            print("="*60)
-        
-        print("\n✅ Initialisation terminée avec succès!\n")
+        db.create_all()
+
+        labels = {
+            'roles': 'rôles',
+            'folders': 'dossiers',
+            'doctypes': 'types de documents',
+            'departments': 'départements',
+            'admin': 'compte admin',
+            'demo': 'comptes démo',
+        }
+        results = seeds.seed_all()
+        for key, count in results.items():
+            label = labels.get(key, key)
+            if count:
+                print(f"   ✓ {label} : {count} ligne(s) créée(s)")
+            else:
+                print(f"   - {label} : déjà en place")
+
+        if results.get('admin'):
+            print("\n" + "=" * 60)
+            print("   Identifiants de connexion :")
+            print(f"   Username: {seeds.DEFAULT_ADMIN['username']}")
+            print(f"   Password: {seeds.DEFAULT_ADMIN['password']}")
+            print("   ⚠️  CHANGEZ CE MOT DE PASSE EN PRODUCTION !")
+            print("=" * 60)
+
+        print("\n✅ Initialisation terminée avec succès !\n")
+
 
 if __name__ == '__main__':
     init_database()
