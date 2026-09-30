@@ -1,0 +1,13 @@
+{
+  // Configuration pyright propre au dépôt backend (miroir de
+  // `../pyrightconfig.json`, qui vit dans le dépôt « docs » et n'existe donc
+  // pas quand ce dépôt est cloné seul — comme le fait la CI).
+  //   venvPath "." + venv "venv"  →  `python -m venv venv` avant `pyright`.
+  "venvPath": ".",
+  "venv": "venv",
+  "typeCheckingMode": "basic",
+  // Faux positifs des modèles Flask-SQLAlchemy (déclaratif `**kwargs`) :
+  // identique au dépôt racine pour que les deux restent cohérents.
+  "reportCallIssue": "none",
+  "exclude": ["venv", "instance", "uploads", "__pycache__"]
+}

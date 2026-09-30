@@ -7,7 +7,7 @@ class PasswordResetToken(db.Model):
     
     token_id = db.Column(db.Integer, primary_key=True)
     token = db.Column(db.String(100), unique=True, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_account.user_id'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False)

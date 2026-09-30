@@ -71,13 +71,20 @@ def create_app(config_name='default'):
     from app.services.session_service import init_session_store
     init_session_store(application)
 
-    # IMPORTANT: Importer tous les modèles APRÈS l'initialisation de db
+    # IMPORTANT: Importer tous les modèles APRÈS l'initialisation de db.
+    # Cet import a un effet de bord : il enregistre chaque `Table` dans le
+    # metadata de `extensions.db`, sans quoi `create_all()` ne créerait que
+    # les tables déjà importées ailleurs (et donc des schémas incomplets).
     with application.app_context():
-        import app.models
+        import app.models  # noqa: F401  (enregistrement des modèles, volontaire)
 
-    # Enregistrer les gestionnaires d'erreurs
-    from app.auth.error_handlers import register_error_handlers
+    # Enveloppe d'erreur standardisée ({"error","code","details"}) + normalisation
+    from app.errors import register_error_handlers
     register_error_handlers(application)
+
+    # Journal d'audit : filet de sécurité sur toutes les mutations (POST/PUT/PATCH/DELETE)
+    from app.services.audit_service import register_audit_hook
+    register_audit_hook(application)
 
     # Enregistrer les blueprints
     from app.auth.routes import auth_bp
@@ -94,6 +101,10 @@ def create_app(config_name='default'):
     application.register_blueprint(documents_bp, url_prefix='/api/documents')
     application.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     application.register_blueprint(search_bp, url_prefix='/api/search')
+
+    # Commandes CLI (flask seed roles|folders|doctypes|departments|admin|demo|all)
+    from app.cli import register_commands
+    register_commands(application)
 
     # Route de santé
     @application.route('/health')

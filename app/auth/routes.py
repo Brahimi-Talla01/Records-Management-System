@@ -11,8 +11,8 @@ Changements vs version JWT :
 """
 
 from flask import Blueprint, request, jsonify, current_app
+from werkzeug.exceptions import HTTPException
 
-from app.models.user import UserAccount
 from app.models.security_alert import SecurityAlert
 from app.auth.services import AuthService
 from app.services import session_service
@@ -146,6 +146,10 @@ def login():
         # (parcours sans 2FA si un jour désactivé globalement)
         return _session_created_response(user)
 
+    except HTTPException:
+
+        raise  # 400/404/413/415/422 : servis tels quels
+
     except Exception as e:
         current_app.logger.error(f"Erreur login: {str(e)}")
         return jsonify({'error': 'Erreur lors de la connexion'}), 500
@@ -167,6 +171,10 @@ def verify_2fa():
             return jsonify({'error': error}), 401
 
         return _session_created_response(user, 'Authentification réussie')
+
+    except HTTPException:
+
+        raise  # 400/404/413/415/422 : servis tels quels
 
     except Exception as e:
         current_app.logger.error(f"Erreur 2FA: {str(e)}")
@@ -279,6 +287,10 @@ def forgot_password():
         success, message = AuthService.request_password_reset(email)
         return jsonify({'message': message}), 200
 
+    except HTTPException:
+
+        raise  # 400/404/413/415/422 : servis tels quels
+
     except Exception as e:
         current_app.logger.error(f"Erreur forgot password: {str(e)}")
         return jsonify({'error': 'Erreur lors de la demande'}), 500
@@ -305,6 +317,10 @@ def reset_password():
             return jsonify({'error': message}), 400
 
         return jsonify({'message': message}), 200
+
+    except HTTPException:
+
+        raise  # 400/404/413/415/422 : servis tels quels
 
     except Exception as e:
         current_app.logger.error(f"Erreur reset password: {str(e)}")
@@ -334,6 +350,10 @@ def change_password():
 
         return jsonify({'message': 'Mot de passe changé avec succès'}), 200
 
+    except HTTPException:
+
+        raise  # 400/404/413/415/422 : servis tels quels
+
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Erreur change password: {str(e)}")
@@ -354,6 +374,8 @@ def enable_2fa():
         if not success:
             return jsonify({'error': message}), 400
         return jsonify({'message': message}), 200
+    except HTTPException:
+        raise  # 400/404/413/415/422 : servis tels quels
     except Exception as e:
         current_app.logger.error(f"Erreur enable 2FA: {str(e)}")
         return jsonify({'error': 'Erreur lors de l\'activation'}), 500
@@ -372,6 +394,8 @@ def confirm_enable_2fa():
         if not success:
             return jsonify({'error': message}), 400
         return jsonify({'message': message}), 200
+    except HTTPException:
+        raise  # 400/404/413/415/422 : servis tels quels
     except Exception as e:
         current_app.logger.error(f"Erreur confirm 2FA: {str(e)}")
         return jsonify({'error': 'Erreur lors de la confirmation'}), 500
@@ -386,6 +410,8 @@ def disable_2fa():
         if not success:
             return jsonify({'error': message}), 400
         return jsonify({'message': message}), 200
+    except HTTPException:
+        raise  # 400/404/413/415/422 : servis tels quels
     except Exception as e:
         current_app.logger.error(f"Erreur disable 2FA: {str(e)}")
         return jsonify({'error': 'Erreur lors de la désactivation'}), 500
@@ -406,6 +432,8 @@ def get_security_alerts():
             is_resolved=False,
         ).order_by(SecurityAlert.created_at.desc()).all()
         return jsonify({'alerts': [a.to_dict() for a in alerts]}), 200
+    except HTTPException:
+        raise  # 400/404/413/415/422 : servis tels quels
     except Exception as e:
         current_app.logger.error(f"Erreur security alerts: {str(e)}")
         return jsonify({'error': 'Erreur lors de la récupération des alertes'}), 500
@@ -427,6 +455,8 @@ def resolve_security_alert(alert_id):
         alert.resolved_by = user.user_id
         db.session.commit()
         return jsonify({'message': 'Alerte résolue avec succès'}), 200
+    except HTTPException:
+        raise  # 400/404/413/415/422 : servis tels quels
     except Exception as e:
         current_app.logger.error(f"Erreur resolve alert: {str(e)}")
         return jsonify({'error': 'Erreur lors de la résolution'}), 500

@@ -1,5 +1,4 @@
 import os
-from datetime import timedelta
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement
@@ -48,8 +47,9 @@ class Config:
     RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI') or os.environ.get('REDIS_URL') or 'memory://'
     RATELIMIT_DEFAULT = os.environ.get('RATELIMIT_DEFAULT', '200 per minute')
 
-    # Upload
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+    # Upload : surchargeable via UPLOAD_FOLDER (docker-compose.yml le monte sur
+    # un volume nommé « uploads_data » → les fichiers survivent aux rebuilds)
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or os.path.join(os.path.dirname(__file__), 'uploads')
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max
     ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xlsx', 'jpg', 'jpeg', 'png', 'tiff'}
 
@@ -93,9 +93,24 @@ class ProductionConfig(Config):
 
 
 class TestingConfig(Config):
+    """Configuration des tests (pytest) — déterministe, sans dépendance externe."""
+
     TESTING = True
     SESSION_TTL_SECONDS = 3600
     RATELIMIT_ENABLED = False
+    # Hash rapide : chaque test crée/sérialise des comptes
+    BCRYPT_LOG_ROUNDS = 4
+    # Ne jamais ouvrir une connexion SMTP pendant les tests
+    MAIL_SUPPRESS_SEND = True
+    MAIL_SERVER = None
+    # SQLite en mémoire (Flask-SQLAlchemy applique StaticPool => une seule
+    # connexion partagée). TEST_DATABASE_URL permet de basculer sur Postgres
+    # dans la CI.
+    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or 'sqlite://'
+    # Pas de Redis en test : les sessions retombent sur le store mémoire
+    REDIS_URL = None
+    # Environnement frontend hors sujet en test
+    FRONTEND_URL = 'http://localhost'
 
 
 config = {

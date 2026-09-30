@@ -1,6 +1,3 @@
-from app.models.user import UserAccount
-from app.models.document import Document
-from extensions import db
 
 class PermissionService:
     @staticmethod

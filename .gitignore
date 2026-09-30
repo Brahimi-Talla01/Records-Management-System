@@ -15,6 +15,11 @@ env/
 instance/
 .webassets-cache
 
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Database
 *.db
 *.sqlite

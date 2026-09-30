@@ -33,11 +33,10 @@ print("PostgreSQL injoignable après 60s", file=sys.stderr)
 sys.exit(1)
 EOF
 
-# 2. Tables (create_all idempotent) + données de base (seed idempotent)
+# 2. Tables (create_all idempotent) + migrations Alembic + données de base (seed)
 python - <<'EOF'
 from app import create_app
 from extensions import db
-import importlib
 import os
 
 flask_env = os.environ.get('FLASK_ENV', 'production')
@@ -46,6 +45,22 @@ app = create_app(flask_env)
 with app.app_context():
     print("Création des tables (create_all)…")
     db.create_all()
+
+    # Bascule sur Alembic (P0.9) : `create_all` crée les tables sans
+    # versionnement, donc si `alembic_version` est absent on stamp la révision
+    # de baseline (23042faea7a9) puis on applique UNIQUEMENT les migrations
+    # suivantes (migration 2 = index, `IF NOT EXISTS` → idempotent).
+    # À partir de P1, les nouvelles tables arrivent par migration.
+    import sqlalchemy as sa
+    from flask_migrate import stamp, upgrade
+
+    inspector = sa.inspect(db.engine)
+    if inspector.has_table('user_account') and not inspector.has_table('alembic_version'):
+        print("Alembic — baseline stampée (23042faea7a9)")
+        stamp(revision='23042faea7a9')
+
+    print("Alembic — application des migrations…")
+    upgrade()
 
     # Seed uniquement en l'absence de données
     from app.models.role import Role

@@ -1,5 +1,4 @@
 from extensions import db
-from datetime import datetime
 
 class Role(db.Model):
     __tablename__ = 'role'
