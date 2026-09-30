@@ -75,8 +75,8 @@ def create_app(config_name='default'):
     with application.app_context():
         import app.models
 
-    # Enregistrer les gestionnaires d'erreurs
-    from app.auth.error_handlers import register_error_handlers
+    # Enveloppe d'erreur standardisée ({"error","code","details"}) + normalisation
+    from app.errors import register_error_handlers
     register_error_handlers(application)
 
     # Enregistrer les blueprints
