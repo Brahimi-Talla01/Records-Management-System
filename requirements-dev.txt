@@ -1,0 +1,12 @@
+# Dépendances de développement et de test (P0.2/P0.3 du plan 07)
+#
+#   pip install -r requirements-dev.txt
+#   pytest                       # suite complète
+#   pytest --cov=app --cov-report=term-missing
+#
+# L'image Docker n'installe QUE requirements.txt (pas d'outillage dans prod).
+
+-r requirements.txt
+
+pytest==8.3.4
+pytest-cov==6.0.0
