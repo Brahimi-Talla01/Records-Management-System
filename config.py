@@ -48,8 +48,9 @@ class Config:
     RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI') or os.environ.get('REDIS_URL') or 'memory://'
     RATELIMIT_DEFAULT = os.environ.get('RATELIMIT_DEFAULT', '200 per minute')
 
-    # Upload
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+    # Upload : surchargeable via UPLOAD_FOLDER (docker-compose.yml le monte sur
+    # un volume nommé « uploads_data » → les fichiers survivent aux rebuilds)
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or os.path.join(os.path.dirname(__file__), 'uploads')
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max
     ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xlsx', 'jpg', 'jpeg', 'png', 'tiff'}
 
