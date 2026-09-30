@@ -4,7 +4,7 @@ import Input from '../../../components/ui/Input';
 import { Checkbox } from '../../../components/ui/Checkbox';
 import Icon from '../../../components/AppIcon';
 
-const LoginForm = ({ onLogin, isLoading = false }) => {
+const LoginForm = ({ onLogin, onForgotPassword, isLoading = false }) => {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -81,6 +81,7 @@ const LoginForm = ({ onLogin, isLoading = false }) => {
           </button>
         </div>
       </div>
+
       <div className="flex items-center justify-between">
         <Checkbox
           label="Se souvenir de moi"
@@ -91,12 +92,14 @@ const LoginForm = ({ onLogin, isLoading = false }) => {
 
         <button
           type="button"
+          onClick={onForgotPassword}
           className="text-sm text-primary hover:text-primary/80 font-body transition-colors"
           disabled={isLoading}
         >
           Mot de passe oublié ?
         </button>
       </div>
+
       <Button
         type="submit"
         variant="default"

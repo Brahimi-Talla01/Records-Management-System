@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Header from '../../components/ui/Header';
 import Breadcrumb from '../../components/ui/Breadcrumb';
+import { useAuth } from '../../features/auth';
 import QuickActionsPanel from './components/QuickActionPanel';
 import StatsOverview from './components/StatsOverview';
 import RecentActivity from './components/RecentActivity';
@@ -11,58 +12,34 @@ import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 
 const Dashboard = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Mock user data - in real app, this would come from authentication context
-  const mockUsers = {
-    admin: {
-      id: 1,
-      name: 'Ibrahim',
-      email: 'ib@gmail.com',
-      role: 'admin',
-      department: 'Administration',
-      avatar: 'https://randomuser.me/api/portraits/women/32.jpg'
-    },
-    teacher: {
-      id: 2,
-      name: 'Feuzeu Jean',
-      email: 'feuzeu@gmail.com',
-      role: 'teacher',
-      department: 'Informatique',
-      avatar: 'https://randomuser.me/api/portraits/men/45.jpg'
-    },
-    student: {
-      id: 3,
-      name: 'Fopa Reine',
-      email: 'fopareine@gmail.com',
-      role: 'student',
-      department: 'Mathématiques',
-      avatar: 'https://randomuser.me/api/portraits/women/25.jpg'
-    },
-    staff: {
-      id: 4,
-      name: 'Ndogmo Felicienne',
-      email: 'ndogmo@gmail.com',
-      role: 'staff',
-      department: 'Secrétariat',
-      avatar: 'https://randomuser.me/api/portraits/men/38.jpg'
-    }
+  // Utilisateur réel depuis la session (Zustand + TanStack Query)
+  const { user: currentUser, isLoading: authLoading } = useAuth();
+
+  // Le backend nomme les rôles 'Admin', 'Prof', 'Etudiant', 'Secretaire' :
+  // on normalise vers les rôles utilisés par l'UI (admin/teacher/student/staff).
+  const mapBackendRole = (roleName) => {
+    const r = (roleName || '').toLowerCase();
+    if (r === 'admin') return 'admin';
+    if (r === 'prof' || r === 'teacher') return 'teacher';
+    if (r === 'etudiant' || r === 'student') return 'student';
+    if (r === 'secretaire' || r === 'staff') return 'staff';
+    return r;
   };
 
-  useEffect(() => {
-    // Simulate loading user data
-    const timer = setTimeout(() => {
-      // For demo purposes, randomly assign a user role
-      const roles = ['admin', 'teacher', 'student', 'staff'];
-      const randomRole = roles?.[Math.floor(Math.random() * roles?.length)];
-      setUser(mockUsers?.[randomRole]);
-      setLoading(false);
-    }, 1000);
+  const user = currentUser
+    ? {
+        id: currentUser.user_id,
+        name: currentUser.full_name || currentUser.username,
+        email: currentUser.email,
+        role: mapBackendRole(currentUser.role?.name),
+        department: currentUser.department?.name || '—',
+        avatar: null,
+      }
+    : null;
 
-    return () => clearTimeout(timer);
-  }, []);
+  const loading = authLoading;
 
   useEffect(() => {
     // Update current time every minute

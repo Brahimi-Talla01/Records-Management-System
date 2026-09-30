@@ -4,7 +4,7 @@ import Button from '../../../components/ui/Button';
 import Image from '../../../components/AppImage';
 
 const RecentDocuments = ({ userRole, documents = [] }) => {
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = useState('grid');
 
   const mockDocuments = [
     {

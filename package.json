@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -12,9 +12,9 @@
   "dependencies": {
     "@dhiwise/component-tagger": "^1.0.10",
     "@radix-ui/react-slot": "^1.2.3",
-    "@reduxjs/toolkit": "^2.9.0",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/vite": "^4.1.13",
+    "@tanstack/react-query": "^5.104.0",
     "@testing-library/jest-dom": "^6.9.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -33,12 +33,11 @@
     "react-router-dom": "^7.9.3",
     "react-router-hash-link": "^2.4.3",
     "recharts": "^3.2.1",
-    "redux": "^5.0.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.13",
     "tailwindcss-animate": "^1.0.7",
-    "tailwindcss-elevation": "^2.0.0",
-    "tailwindcss-fluid-type": "^2.0.7"
+    "tailwindcss-fluid-type": "^2.0.7",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

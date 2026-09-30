@@ -57,11 +57,11 @@ const Input = React.forwardRef(({
                     htmlFor={inputId}
                     className={cn(
                         "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-                        error ? "text-destructive" : "text-foreground"
+                        error ? "text-red-500" : "text-foreground"
                     )}
                 >
                     {label}
-                    {required && <span className="text-destructive ml-1">*</span>}
+                    {required && <span className="text-red-500 ml-1">*</span>}
                 </label>
             )}
 
@@ -69,7 +69,7 @@ const Input = React.forwardRef(({
                 type={type}
                 className={cn(
                     baseInputClasses,
-                    error && "border-primary focus-visible:ring-destructive",
+                    error && "border-primary focus-visible:ring-red-500",
                     className
                 )}
                 ref={ref}
@@ -84,7 +84,7 @@ const Input = React.forwardRef(({
             )}
 
             {error && (
-                <p className="text-sm text-destructive">
+                <p className="text-sm text-red-500">
                     {error}
                 </p>
             )}

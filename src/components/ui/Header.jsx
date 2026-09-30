@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Icon from '../AppIcon';
 import Button from './Button';
+import { useAuth } from '../../features/auth';
 
-const Header = ({ user = null, onLogout = () => {} }) => {
+const Header = ({ user = null, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   // Logique de navigation (conservée)
   const navigationItems = [
@@ -29,10 +31,17 @@ const Header = ({ user = null, onLogout = () => {} }) => {
   };
 
 
-  const handleLogout = () => {
-    localStorage.removeItem("auth-token");
-    localStorage.removeItem("user-data");
-    navigate("/login");
+  // Logout par session : révoque la session serveur + purge le state,
+  // puis redirige (onLogout externe optionnel exécuté après).
+  const handleLogout = async () => {
+    try {
+      await logout.mutateAsync();
+    } catch {
+      // session déjà morte côté serveur : on redirige quand même
+    } finally {
+      if (onLogout) onLogout();
+      navigate('/login');
+    }
   };
 
   const notifications = [
@@ -113,7 +122,7 @@ const Header = ({ user = null, onLogout = () => {} }) => {
                 />
                 
                 {/* Conteneur des notifications */}
-                <div className="absolute right-0 top-full mt-3 w-80 bg-popover border border-border rounded-lg shadow-xl z-[1000] animate-in slide-in-from-top-1 fade-in-0 duration-300">
+                <div className="absolute top-full mt-3 w-80 left-1/2 -translate-x-1/2 md:left-auto md:right-auto bg-popover border border-border rounded-lg shadow-xl z-[1000] animate-in slide-in-from-top-1 fade-in-0 duration-300">
                   <div className="p-4 border-b border-border">
                     <h3 className="font-heading font-semibold text-lg text-popover-foreground">Alertes Récentes</h3>
                   </div>

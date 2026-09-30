@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Header from '../../components/ui/Header';
 import Breadcrumb from '../../components/ui/Breadcrumb';
 import UserTable from './components/UserTable';
@@ -7,12 +7,43 @@ import UserActions from './components/UserActions';
 import UserModal from './components/UserModal';
 import ActivityPanel from './components/ActivityPanel';
 import Button from '../../components/ui/Button';
+import Icon from '../../components/AppIcon';
+import {
+  useUsers,
+  useCreateUser,
+  useUpdateUser,
+  useRoles,
+  useDepartments,
+} from '../../features/users';
+import { useAuth } from '../../features/auth';
+import { API_BASE_URL } from '../../lib/api';
 
+// Mapping des rôles backend (Admin/Prof/Etudiant/Secretaire) vers les clés UI
+const mapBackendRole = (roleName) => {
+  const r = (roleName || '').toLowerCase();
+  if (r === 'admin') return 'admin';
+  if (r === 'prof') return 'teacher';
+  if (r === 'etudiant') return 'student';
+  if (r === 'secretaire') return 'staff';
+  return r;
+};
 
 const UserManagement = () => {
+  // Données serveur (TanStack Query)
+  const [page] = useState(1);
+  const perPage = 100; // pagination côté serveur ; le client filtre localement
+  const usersQuery = useUsers({ page, perPage });
+  const rolesQuery = useRoles();
+  const departmentsQuery = useDepartments();
+
+  const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
+
+  // Utilisateur connecté (session)
+  const { user: me } = useAuth();
+
   // State management
   const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
@@ -25,83 +56,26 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showActivityPanel, setShowActivityPanel] = useState(false);
 
-  // Mock user data
-  const mockUsers = [
-    {
-      id: 'USR001',
-      name: 'Marie Dubois',
-      email: 'marie.dubois@universite.fr',
-      role: 'admin',
-      department: 'administration',
-      status: 'active',
-      lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000)
-    },
-    {
-      id: 'USR002',
-      name: 'Pierre Martin',
-      email: 'pierre.martin@universite.fr',
-      role: 'teacher',
-      department: 'informatique',
-      status: 'active',
-      lastLogin: new Date(Date.now() - 5 * 60 * 60 * 1000)
-    },
-    {
-      id: 'USR003',
-      name: 'Sophie Laurent',
-      email: 'sophie.laurent@universite.fr',
-      role: 'teacher',
-      department: 'mathematiques',
-      status: 'active',
-      lastLogin: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: 'USR004',
-      name: 'Jean Dupont',
-      email: 'jean.dupont@universite.fr',
-      role: 'student',
-      department: 'informatique',
-      status: 'inactive',
-      lastLogin: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: 'USR005',
-      name: 'Emma Moreau',
-      email: 'emma.moreau@universite.fr',
-      role: 'student',
-      department: 'physique',
-      status: 'active',
-      lastLogin: new Date(Date.now() - 30 * 60 * 1000)
-    },
-    {
-      id: 'USR006',
-      name: 'Lucas Bernard',
-      email: 'lucas.bernard@universite.fr',
-      role: 'teacher',
-      department: 'chimie',
-      status: 'suspended',
-      lastLogin: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: 'USR007',
-      name: 'Camille Petit',
-      email: 'camille.petit@universite.fr',
-      role: 'student',
-      department: 'biologie',
-      status: 'pending',
-      lastLogin: null
-    },
-    {
-      id: 'USR008',
-      name: 'Thomas Roux',
-      email: 'thomas.roux@universite.fr',
-      role: 'admin',
-      department: 'administration',
-      status: 'active',
-      lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000)
+  // Synchronise la liste depuis le serveur
+  useEffect(() => {
+    if (usersQuery.data?.users) {
+      setUsers(
+        usersQuery.data.users.map((u) => ({
+          id: u.user_id,
+          matricule: u.matricule,
+          name: u.full_name || u.username,
+          email: u.email,
+          role: mapBackendRole(u.role?.name),
+          department: u.department?.code?.toLowerCase() || '',
+          status: u.is_active ? 'active' : 'inactive',
+          lastLogin: u.last_login ? new Date(u.last_login) : null,
+          _raw: u,
+        }))
+      );
     }
-  ];
+  }, [usersQuery.data]);
 
-  // Mock activity data
+  // Mock activity data (à brancher sur AuditLog en phase 2)
   const mockActivities = [
     {
       id: 1,
@@ -115,7 +89,7 @@ const UserManagement = () => {
     {
       id: 2,
       user: 'Pierre Martin',
-      action: 's\'est connecté',
+      action: "s'est connecté",
       type: 'login',
       timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
       ip: '192.168.1.23'
@@ -123,7 +97,7 @@ const UserManagement = () => {
     {
       id: 3,
       user: 'Thomas Roux',
-      action: 'a modifié le rôle d\'un utilisateur',
+      action: "a modifié le rôle d'un utilisateur",
       details: 'Lucas Bernard: Enseignant → Administrateur',
       type: 'role_change',
       timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000),
@@ -140,7 +114,7 @@ const UserManagement = () => {
     }
   ];
 
-  // Mock security alerts
+  // Mock security alerts (à brancher sur SecurityAlert en phase 2)
   const mockSecurityAlerts = [
     {
       id: 1,
@@ -159,54 +133,38 @@ const UserManagement = () => {
     {
       id: 3,
       title: 'Compte inactif depuis longtemps',
-      description: 'Lucas Bernard n\'a pas accédé au système depuis 14 jours',
+      description: "Lucas Bernard n'a pas accédé au système depuis 14 jours",
       severity: 'low',
       timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000)
     }
   ];
 
-  // Mock current user
-  const currentUser = {
-    name: 'Administrateur Système',
-    role: 'admin',
-    email: 'admin@universite.fr'
-  };
+  // Utilisateur connecté pour le Header (session réelle)
+  const headerUser = me
+    ? {
+        name: me.full_name || me.username,
+        role: mapBackendRole(me.role?.name),
+        email: me.email,
+      }
+    : null;
 
-  // Initialize users
-  useEffect(() => {
-    setUsers(mockUsers);
-    setFilteredUsers(mockUsers);
-  }, []);
-
-  // Filter and sort users
-  useEffect(() => {
+  // Filtrage + tri locaux (sur la page courante)
+  const filteredUsers = useMemo(() => {
     let filtered = [...users];
 
-    // Apply search filter
     if (searchQuery) {
-      filtered = filtered?.filter(user =>
-        user?.name?.toLowerCase()?.includes(searchQuery?.toLowerCase()) ||
-        user?.email?.toLowerCase()?.includes(searchQuery?.toLowerCase()) ||
-        user?.id?.toLowerCase()?.includes(searchQuery?.toLowerCase())
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (u) =>
+          u?.name?.toLowerCase()?.includes(q) ||
+          u?.email?.toLowerCase()?.includes(q) ||
+          u?.matricule?.toLowerCase()?.includes(q)
       );
     }
+    if (selectedRole) filtered = filtered.filter((u) => u?.role === selectedRole);
+    if (selectedDepartment) filtered = filtered.filter((u) => u?.department === selectedDepartment);
+    if (selectedStatus) filtered = filtered.filter((u) => u?.status === selectedStatus);
 
-    // Apply role filter
-    if (selectedRole) {
-      filtered = filtered?.filter(user => user?.role === selectedRole);
-    }
-
-    // Apply department filter
-    if (selectedDepartment) {
-      filtered = filtered?.filter(user => user?.department === selectedDepartment);
-    }
-
-    // Apply status filter
-    if (selectedStatus) {
-      filtered = filtered?.filter(user => user?.status === selectedStatus);
-    }
-
-    // Apply sorting
     filtered?.sort((a, b) => {
       let aValue = a?.[sortBy];
       let bValue = b?.[sortBy];
@@ -219,31 +177,25 @@ const UserManagement = () => {
         bValue = bValue?.toLowerCase();
       }
 
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
+      if (sortOrder === 'asc') return aValue > bValue ? 1 : -1;
+      return aValue < bValue ? 1 : -1;
     });
 
-    setFilteredUsers(filtered);
+    return filtered;
   }, [users, searchQuery, selectedRole, selectedDepartment, selectedStatus, sortBy, sortOrder]);
 
-  // Calculate user counts
   const userCounts = {
-    total: users?.length,
-    active: users?.filter(u => u?.status === 'active')?.length,
-    inactive: users?.filter(u => u?.status === 'inactive')?.length,
-    suspended: users?.filter(u => u?.status === 'suspended')?.length,
-    pending: users?.filter(u => u?.status === 'pending')?.length
+    total: usersQuery.data?.total ?? users.length,
+    active: users?.filter((u) => u?.status === 'active')?.length,
+    inactive: users?.filter((u) => u?.status === 'inactive')?.length,
+    suspended: users?.filter((u) => u?.status === 'suspended')?.length,
+    pending: users?.filter((u) => u?.status === 'pending')?.length,
   };
 
   // Event handlers
   const handleSelectUser = (userId) => {
-    setSelectedUsers(prev =>
-      prev?.includes(userId)
-        ? prev?.filter(id => id !== userId)
-        : [...prev, userId]
+    setSelectedUsers((prev) =>
+      prev?.includes(userId) ? prev?.filter((id) => id !== userId) : [...prev, userId]
     );
   };
 
@@ -251,7 +203,7 @@ const UserManagement = () => {
     if (selectedUsers?.length === filteredUsers?.length) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(filteredUsers?.map(user => user?.id));
+      setSelectedUsers(filteredUsers?.map((u) => u?.id));
     }
   };
 
@@ -280,63 +232,111 @@ const UserManagement = () => {
   };
 
   const handleSaveUser = async (userData) => {
-    if (modalMode === 'add') {
-      const newUser = {
-        id: `USR${String(users?.length + 1)?.padStart(3, '0')}`,
-        ...userData,
-        lastLogin: null
-      };
-      setUsers(prev => [...prev, newUser]);
-    } else {
-      setUsers(prev =>
-        prev?.map(user =>
-          user?.id === selectedUser?.id
-            ? { ...user, ...userData }
-            : user
-        )
-      );
+    try {
+      if (modalMode === 'add') {
+        // Le backend exige matricule + username + role_id ; mot de passe par défaut
+        await createUser.mutateAsync({
+          matricule: `USR${Date.now().toString().slice(-6)}`,
+          username: userData.email?.split('@')[0] || userData.name.toLowerCase().replace(/\s+/g, '.'),
+          email: userData.email,
+          full_name: userData.name,
+          role_id: rolesQuery.data?.find((r) => mapBackendRole(r.name) === userData.role)?.role_id,
+          department_id: departmentsQuery.data?.find(
+            (d) => d.code?.toLowerCase() === userData.department
+          )?.department_id,
+          is_active: userData.status !== 'inactive',
+        });
+      } else if (selectedUser?._raw) {
+        await updateUser.mutateAsync({
+          userId: selectedUser.id,
+          payload: {
+            email: userData.email,
+            full_name: userData.name,
+            role_id: rolesQuery.data?.find((r) => mapBackendRole(r.name) === userData.role)?.role_id,
+            department_id: departmentsQuery.data?.find(
+              (d) => d.code?.toLowerCase() === userData.department
+            )?.department_id,
+            is_active: userData.status !== 'inactive',
+          },
+        });
+      }
+      setIsModalOpen(false);
+      setSelectedUsers([]);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur lors de la sauvegarde');
     }
-    setSelectedUsers([]);
   };
 
-  const handleResetPassword = (user) => {
-    console.log('Reset password for:', user?.name);
-    // Implementation would go here
+  const handleResetPassword = async (user) => {
+    if (!window.confirm(`Réinitialiser le mot de passe de ${user?.name} ?`)) return;
+    try {
+      const { usersApi } = await import('../../features/users/api');
+      await usersApi.resetPassword(user.id, 'ChangeMe@123');
+      alert(`Mot de passe réinitialisé pour ${user?.name}. Un email a été envoyé.`);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur lors de la réinitialisation');
+    }
   };
 
-  const handleToggleStatus = (user) => {
-    const newStatus = user?.status === 'active' ? 'inactive' : 'active';
-    setUsers(prev =>
-      prev?.map(u =>
-        u?.id === user?.id
-          ? { ...u, status: newStatus }
-          : u
-      )
-    );
+  const handleToggleStatus = async (user) => {
+    try {
+      await updateUser.mutateAsync({
+        userId: user.id,
+        payload: { is_active: user.status === 'inactive' },
+      });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur lors du changement de statut');
+    }
   };
 
   const handleBulkAction = (action, count) => {
-    console.log(`Bulk action: ${action} for ${count} users`);
-    // Implementation would go here
+    // Les actions groupées nécessitent un endpoint dédié (à venir en phase 2)
+    alert(`Action groupée "${action}" sur ${count} utilisateur(s) : nécessite un endpoint backend dédié.`);
   };
 
   const handleImportUsers = () => {
-    console.log('Import users from CSV');
-    // Implementation would go here
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const { usersApi } = await import('../../features/users/api');
+        const result = await usersApi.importCsv(file);
+        alert(
+          `Import terminé : ${result.success} succès, ${result.errors?.length || 0} erreur(s)`
+        );
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erreur lors de l\'import');
+      }
+    };
+    input.click();
   };
 
   const handleExportUsers = () => {
-    console.log('Export users to CSV');
-    // Implementation would go here
+    // Le backend renvoie un CSV en attachment (cookie de session envoyé automatiquement)
+    window.open(`${API_BASE_URL}/users/export`, '_blank');
   };
 
   const handleLogout = () => {
     window.location.href = '/login';
   };
 
+  if (usersQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground font-body">Chargement des utilisateurs…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <Header user={currentUser} onLogout={handleLogout} />
+      <Header user={headerUser} onLogout={handleLogout} />
       <main className="pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Page Header */}
@@ -351,7 +351,7 @@ const UserManagement = () => {
                   Gérez les comptes utilisateurs, les rôles et les permissions de l'université
                 </p>
               </div>
-              
+
               <div className="mt-4 lg:mt-0 flex items-center space-x-3">
                 <Button
                   variant="outline"
