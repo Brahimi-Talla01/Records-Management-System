@@ -7,7 +7,7 @@ from functools import wraps
 
 from flask import jsonify, request
 
-from app.auth.session_auth import session_required, get_current_user
+from app.auth.session_auth import session_required, get_current_user, mark_guard
 
 
 def role_required(*roles):
@@ -23,7 +23,7 @@ def role_required(*roles):
             if user.role.name not in roles:
                 return jsonify({'error': 'Permission insuffisante'}), 403
             return fn(*args, **kwargs)
-        return wrapper
+        return mark_guard(wrapper, 'role')
     return decorator
 
 
@@ -36,7 +36,7 @@ def admin_required(fn):
         if user.role.name != 'Admin':
             return jsonify({'error': 'Accès réservé aux administrateurs'}), 403
         return fn(*args, **kwargs)
-    return wrapper
+    return mark_guard(wrapper, 'admin')
 
 
 def super_admin_required(fn):
@@ -48,7 +48,7 @@ def super_admin_required(fn):
         if not user.is_super_admin:
             return jsonify({'error': 'Accès réservé au super administrateur'}), 403
         return fn(*args, **kwargs)
-    return wrapper
+    return mark_guard(wrapper, 'super_admin')
 
 
 def department_access_required(fn):
@@ -69,4 +69,4 @@ def department_access_required(fn):
             return jsonify({'error': 'Accès au département non autorisé'}), 403
 
         return fn(*args, **kwargs)
-    return wrapper
+    return mark_guard(wrapper, 'department')

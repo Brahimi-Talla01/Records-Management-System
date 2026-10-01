@@ -66,6 +66,20 @@ def load_session():
     return user, payload
 
 
+def mark_guard(fn, guard: str):
+    """
+    Annote une vue avec le(s) garde(s) qui la protège(nt).
+
+    Les décorateurs empilés accumulent leurs marques (`functools.wraps`
+    propage `__guards__`), ce qui donne au générateur OpenAPI (P6) et aux
+    tests d'invariant l'état réel de la protection d'une route.
+    """
+    guards: set[str] = set(getattr(fn, '__guards__', ()))
+    guards.add(guard)
+    fn.__guards__ = frozenset(guards)
+    return fn
+
+
 def session_required(fn):
     """Décorateur d'authentification par session (remplace @jwt_required)."""
 
@@ -85,7 +99,7 @@ def session_required(fn):
 
         return fn(*args, **kwargs)
 
-    return wrapper
+    return mark_guard(wrapper, 'session')
 
 
 def get_current_user() -> UserAccount:
