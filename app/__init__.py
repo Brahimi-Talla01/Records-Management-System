@@ -66,6 +66,11 @@ def create_app(config_name='default'):
         application,
         force_https=application.config.get('FORCE_HTTPS', False),
         strict_transport_security=application.config.get('FORCE_HTTPS', False),
+        # Talisman écrase ces deux réglages par ses défauts : sans les lui
+        # transmettre, `SESSION_COOKIE_SECURE=false` serait ignoré et les
+        # cookies deviendraient `Secure` derrière un proxy HTTP.
+        session_cookie_secure=application.config.get('SESSION_COOKIE_SECURE', False),
+        session_cookie_samesite=application.config.get('SESSION_COOKIE_SAMESITE', 'Lax'),
         content_security_policy={
             'default-src': ["'self'"],
             'img-src': ["'self'", 'data:'],

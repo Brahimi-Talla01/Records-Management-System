@@ -52,6 +52,24 @@ def test_configuration_de_test():
     assert TestingConfig.BCRYPT_LOG_ROUNDS <= 5  # hash rapide pour les tests
 
 
+def test_flag_secure_des_cookies_conserve(app, monkeypatch):
+    """Talisman force `SESSION_COOKIE_SECURE=True` à la première requête en
+    production : la valeur opérateur doit lui être transmise, sinon le réglage
+    documenté `SESSION_COOKIE_SECURE=false` est ignoré et les cookies deviennent
+    `Secure` même derrière un proxy HTTP."""
+    from app.auth.routes import _set_session_cookies
+
+    monkeypatch.setitem(app.config, 'SESSION_COOKIE_SECURE', False)
+
+    assert app.test_client().get('/health').status_code == 200
+    assert app.config['SESSION_COOKIE_SECURE'] is False
+
+    response = app.response_class('')
+    _set_session_cookies(response, 'identifiant-de-session', 'jeton-csrf')
+    cookies = response.headers.getlist('Set-Cookie')
+    assert cookies and all('Secure' not in cookie for cookie in cookies)
+
+
 def _create_app_in_subprocess(env_overrides):
     """Lance create_app('production') dans un sous-processus avec un env donné."""
     env = {**os.environ, **env_overrides}
