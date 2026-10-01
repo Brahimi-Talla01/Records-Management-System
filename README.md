@@ -93,6 +93,27 @@ export ENCRYPTED_LEVELS='confidential,secret'   # niveaux chiffrés à l'upload
   à `true`. Téléchargement, aperçu et OCR déchiffrent à la volée.
 - **Clé mal formée** : le démarrage échoue (`RuntimeError`) plutôt que le premier téléchargement.
 
+## Stockage objet S3/MinIO (P6)
+
+Le stockage local reste le défaut ; `STORAGE_BACKEND=s3` bascule `app/storage/` sur `S3Storage`
+(même interface `save/open/exists/delete`, mêmes retours `{path, size, checksum}`) :
+
+```bash
+export STORAGE_BACKEND=s3
+export S3_ENDPOINT_URL='http://minio:9000'   # vide pour AWS S3
+export S3_REGION='eu-west-1'
+export S3_BUCKET='uniarchive'
+export S3_ACCESS_KEY='...' S3_SECRET_KEY='...'
+export S3_PREFIX='uniarchive'                # clé racine dans le bucket
+export S3_FORCE_PATH_STYLE=true              # obligatoire pour MinIO
+```
+
+- **Sans bucket, pas de démarrage** : `S3_BUCKET` vide + `STORAGE_BACKEND=s3` → `RuntimeError`.
+- **Interopérabilité** : chiffrement au repos, OCR et purge de rétention passent par la même
+  interface — ils fonctionnent à l'identique sur S3.
+- **Écriture** : l'objet est mis en tampon (8 Mo max en mémoire) pour le multipart et pour
+  calculer l'empreinte SHA-256 du contenu écrit ; `LocalStorage` n'est pas modifié.
+
 ## Tests & qualité
 
 ```bash
