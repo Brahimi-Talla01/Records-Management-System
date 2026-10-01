@@ -1,5 +1,6 @@
 import csv
 import io
+import tempfile
 import uuid
 from datetime import datetime, timedelta
 
@@ -18,7 +19,7 @@ from app.services import audit_service, ocr_service
 from app.services.notification_service import NotificationService
 from app.services.permission_service import PermissionService
 from app.settings.service import SettingService
-from app.storage import get_storage
+from app.storage import crypto, get_storage
 from extensions import db
 
 CONFIDENTIALITIES = ('public', 'internal', 'confidential', 'secret')
@@ -327,7 +328,20 @@ class DocumentService:
         relative = (f"{DocumentService._campus_code(document.campus_id)}/"
                     f"{now:%Y}/{now:%m}/"
                     f"v{version_number}_{uuid.uuid4().hex[:8]}.{ext}")
-        result = get_storage().save(relative, file.stream)
+        storage = get_storage()
+        encrypted = crypto.should_encrypt(document.confidentiality_level)
+        if encrypted:
+            sealed = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+            try:
+                seal = crypto.encrypt(file.stream, sealed)
+                sealed.seek(0)
+                result = storage.save(relative, sealed)
+            finally:
+                sealed.close()
+            # Le drapeau, la taille et l'empreinte décrivent le clair.
+            result.update(seal)
+        else:
+            result = storage.save(relative, file.stream)
 
         version = DocumentVersion(
             document_id=document.document_id,
@@ -340,6 +354,7 @@ class DocumentService:
         )
         db.session.add(version)
         document.size_bytes = result['size']
+        document.is_encrypted = encrypted
         db.session.commit()
         audit_service.log('document_version_added', 'document',
                           object_id=document.document_id,
@@ -416,6 +431,9 @@ class DocumentService:
             uploaded_by=actor.user_id,
         )
         db.session.add(version)
+        # La version restaurée réutilise l'octet source : le drapeau suit le blob.
+        document.is_encrypted = (get_storage().exists(source.storage_url)
+                                 and crypto.stored_encrypted(source.storage_url))
         db.session.commit()
         audit_service.log('document_version_restored', 'document',
                           object_id=document.document_id,
