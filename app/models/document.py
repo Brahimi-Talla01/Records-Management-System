@@ -8,6 +8,10 @@ from extensions import db
 class TSVector(UserDefinedType):
     """Type `tsvector` PostgreSQL — alimenté par trigger (migration P4)."""
 
+    # Type sans état : SQLAlchemy peut l'inclure dans la clé de cache des
+    # statements (sinon toute requête touchant `search_vector` est recompilée).
+    cache_ok = True
+
     def get_col_spec(self) -> str:
         return 'TSVECTOR'
 

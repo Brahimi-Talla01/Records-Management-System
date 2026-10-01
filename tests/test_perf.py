@@ -6,13 +6,23 @@ les dix requêtes suivies doivent produire un plan sans erreur. La pagination
 clé est vérifiée en parcourant une liste complète page par page (ordre identique
 à la pagination d'origine, aucune ligne en double) et en écoutant le SQL émis
 pour constater l'absence de `COUNT(*)`.
+
+La branche plein texte n'existe que sur PostgreSQL : elle est couverte ici en
+compilant les requêtes pour le dialecte `postgresql` (sans serveur), ce qui
+attrape les défauts de rendu littéral et de cache que SQLite ne voit jamais.
 """
 
 import json
+import warnings
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, select
+from sqlalchemy.dialects import postgresql
 
+import sqlalchemy.dialects.postgresql.ext  # noqa: F401 — enregistre websearch_to_tsquery
+
+from app.models.document import Document
+from app.search.services import SearchService
 from app.services.perf_service import explain, heavy_queries
 from extensions import db
 
@@ -86,6 +96,33 @@ def test_commande_perf_explain_json(app):
     payload = json.loads(result.output)
     assert len(payload) == 10
     assert all(entry['plan'] and not entry.get('error') for entry in payload)
+
+
+def test_requetes_postgres_compilables_en_litteraux(monkeypatch):
+    """`literal_binds` (la technique de l'EXPLAIN) doit rendre les 10 requêtes
+    pour PostgreSQL : `websearch_to_tsquery('french')` posait un littéral
+    REGCONFIG sans processeur — les 2 requêtes plein texte échouaient en PG."""
+    monkeypatch.setattr(SearchService, 'is_postgres', lambda: True)
+    dialect = postgresql.dialect()
+
+    for name, statement in heavy_queries():
+        compiled = statement.compile(dialect=dialect,
+                                     compile_kwargs={'literal_binds': True})
+        assert compiled.string, name
+
+
+def test_requete_full_text_sans_avertissement_de_cache(monkeypatch):
+    """`search_vector` (TSVector) doit déclarer `cache_ok` : sinon SQLAlchemy
+    refuse la clé de cache et recompile la requête plein texte à chaque appel."""
+    monkeypatch.setattr(SearchService, 'is_postgres', lambda: True)
+    condition, _, _ = SearchService._text_condition('rapport')
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        select(Document).where(condition).limit(20)._generate_cache_key()
+
+    missing = [str(w.message) for w in caught if 'cache key' in str(w.message)]
+    assert not missing, missing
 
 
 def test_pagination_cle_restitue_la_meme_liste(app, admin, seeded_documents):
