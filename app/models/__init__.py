@@ -3,15 +3,19 @@ Importation centralisée de tous les modèles.
 L'ordre est CRITIQUE pour respecter les dépendances des clés étrangères.
 """
 
+# 0. Institution & Campus (sans dépendances)
+from app.models.institution import Institution
+from app.models.campus import Campus
+
 # 1. Modèles de base SANS dépendances
 from app.models.role import Role
 from app.models.tag import Tag
 from app.models.doc_type import DocType
 
-# 2. Folder (auto-référence uniquement)
+# 2. Folder (dépend de Campus, auto-référence)
 from app.models.folder import Folder
 
-# 3. Department (dépend de Folder)
+# 3. Department (dépend de Folder et Campus)
 from app.models.department import Department
 
 # 4. UserAccount (dépend de Role et Department) - DOIT ÊTRE AVANT Notification
@@ -38,7 +42,12 @@ from app.models.password_reset import PasswordResetToken
 from app.models.two_factor import TwoFactorCode
 from app.models.security_alert import SecurityAlert
 
+# 9. Réglages (dépendent de Campus et UserAccount)
+from app.models.setting import Setting
+
 __all__ = [
+    'Institution',
+    'Campus',
     'Role',
     'Tag',
     'DocType',
@@ -57,5 +66,6 @@ __all__ = [
     'RoleFolderRight',
     'PasswordResetToken',
     'TwoFactorCode',
-    'SecurityAlert'
+    'SecurityAlert',
+    'Setting',
 ]

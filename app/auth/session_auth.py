@@ -77,6 +77,8 @@ def session_required(fn):
 
         g.current_user = user
         g.session_payload = payload
+        from app.scope import set_campus_context
+        set_campus_context(user)
 
         if _is_mutating_request() and not _validate_csrf():
             return _error('Token CSRF invalide ou manquant', 403)

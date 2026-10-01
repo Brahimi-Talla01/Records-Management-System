@@ -6,15 +6,18 @@ class Document(db.Model):
 
     __table_args__ = (
         db.Index('ix_document_status_created_at', 'status', 'created_at'),
+        db.Index('ix_document_campus_status_created_at', 'campus_id', 'status', 'created_at'),
     )
     
     document_id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(250), nullable=False)
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     status = db.Column(db.String(50), nullable=False, default='active')
     confidentiality_level = db.Column(db.String(50), nullable=False, default='internal', index=True)
     retention_period = db.Column(db.Integer)
+    retention_expires_at = db.Column(db.DateTime)
     is_encrypted = db.Column(db.Boolean, default=False)
     ocr_text = db.Column(db.Text)
     size_bytes = db.Column(db.BigInteger)
@@ -40,11 +43,23 @@ class Document(db.Model):
         nullable=True,
         index=True,
     )
+    campus_id = db.Column(
+        db.Integer,
+        db.ForeignKey('campus.campus_id', ondelete='RESTRICT'),
+        nullable=False,
+        index=True,
+    )
+    deleted_by = db.Column(
+        db.Integer,
+        db.ForeignKey('user_account.user_id', ondelete='SET NULL'),
+        nullable=True,
+    )
 
     # Relations - IMPORTANT: utilisez back_populates au lieu de backref
     department = db.relationship('Department', back_populates='documents')
     doc_type = db.relationship('DocType', back_populates='documents')
     folder = db.relationship('Folder', back_populates='documents')
+    campus = db.relationship('Campus', back_populates='documents')
     
     # Relation avec les versions
     versions = db.relationship('DocumentVersion', back_populates='document', 
@@ -61,11 +76,16 @@ class Document(db.Model):
             'title': self.title,
             'description': self.description,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'status': self.status,
             'confidentiality_level': self.confidentiality_level,
             'department_id': self.department_id,
             'doc_type_id': self.doc_type_id,
             'folder_id': self.folder_id,
+            'campus_id': self.campus_id,
+            'retention_period': self.retention_period,
+            'retention_expires_at': (self.retention_expires_at.isoformat()
+                                     if self.retention_expires_at else None),
             'size_bytes': self.size_bytes,
             'is_encrypted': self.is_encrypted
         }

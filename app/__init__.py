@@ -94,6 +94,11 @@ def create_app(config_name='default'):
     from app.users.routes import users_bp
     application.register_blueprint(users_bp)
 
+    from app.campuses.routes import campuses_bp
+    from app.settings.routes import settings_bp
+    application.register_blueprint(campuses_bp)
+    application.register_blueprint(settings_bp)
+
     # Enregistrer les blueprints documents / dashboard / search
     from app.documents.routes import documents_bp
     from app.dashboard.routes import dashboard_bp

@@ -39,6 +39,18 @@ def admin_required(fn):
     return wrapper
 
 
+def super_admin_required(fn):
+    """Réserve la route au super administrateur (Admin sans campus)."""
+    @wraps(fn)
+    @session_required
+    def wrapper(*args, **kwargs):
+        user = get_current_user()
+        if not user.is_super_admin:
+            return jsonify({'error': 'Accès réservé au super administrateur'}), 403
+        return fn(*args, **kwargs)
+    return wrapper
+
+
 def department_access_required(fn):
     """
     Vérifie l'accès au département (kwargs department_id ou query param).

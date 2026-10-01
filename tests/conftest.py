@@ -71,6 +71,8 @@ def fresh_data(app):
         # vidé, sinon les sessions des tests précédents survivent à l'analyse
         # de /api/auth/sessions.
         session_service.init_session_store(app)
+        from app.settings.service import purge_cache
+        purge_cache()
     yield
     with app.app_context():
         db.session.remove()
