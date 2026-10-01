@@ -56,6 +56,11 @@ class Config:
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024
     ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xlsx', 'jpg', 'jpeg', 'png', 'tiff'}
 
+    # OCR (P6) : langues Tesseract, bornes et expiration du sous-processus
+    OCR_LANGUAGES = os.environ.get('OCR_LANGUAGES', 'fra+eng')
+    OCR_TIMEOUT_SECONDS = int(os.environ.get('OCR_TIMEOUT_SECONDS', '30'))
+    OCR_MAX_PDF_PAGES = int(os.environ.get('OCR_MAX_PDF_PAGES', '200'))
+
     # Pagination
     ITEMS_PER_PAGE = 20
 

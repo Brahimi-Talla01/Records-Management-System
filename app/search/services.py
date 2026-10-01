@@ -124,7 +124,8 @@ class SearchService:
 
         pattern = f"%{q}%"
         return (or_(Document.title.ilike(pattern),
-                    Document.description.ilike(pattern)), None, None)
+                    Document.description.ilike(pattern),
+                    Document.ocr_text.ilike(pattern)), None, None)
 
     @staticmethod
     def _headline(tsquery):
@@ -137,7 +138,8 @@ class SearchService:
 
     @staticmethod
     def _fallback_snippet(document, q: str) -> str:
-        text = next((value for value in (document.description, document.title)
+        candidates = (document.description, document.title, document.ocr_text)
+        text = next((value for value in candidates
                      if value and q.lower() in value.lower()),
                     document.description or document.title or '')
         position = text.lower().find(q.lower())

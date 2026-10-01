@@ -14,7 +14,7 @@ from app.models.document_version import DocumentVersion
 from app.models.folder import Folder
 from app.models.tag import Tag
 from app.scope import is_super_admin
-from app.services import audit_service
+from app.services import audit_service, ocr_service
 from app.services.notification_service import NotificationService
 from app.services.permission_service import PermissionService
 from app.settings.service import SettingService
@@ -310,6 +310,14 @@ class DocumentService:
         return updated
 
     @staticmethod
+    def _apply_ocr(document, version):
+        text = ocr_service.extract(version.storage_url, version.mime_type,
+                                   document.campus_id)
+        if text:
+            document.ocr_text = text
+            db.session.commit()
+
+    @staticmethod
     def _store_version(actor, document, file, change_note=None):
         ext = validate_upload(file)
         last = (db.session.query(db.func.max(DocumentVersion.version_number))
@@ -338,6 +346,7 @@ class DocumentService:
                           details={'version': version_number},
                           user_id=actor.user_id)
         NotificationService.notify_document_upload(document, actor)
+        DocumentService._apply_ocr(document, version)
         return version
 
     @staticmethod
@@ -412,6 +421,7 @@ class DocumentService:
                           object_id=document.document_id,
                           details={'from_version': source.version_number},
                           user_id=actor.user_id)
+        DocumentService._apply_ocr(document, version)
         return version
 
     @staticmethod
