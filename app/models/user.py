@@ -19,12 +19,23 @@ class UserAccount(db.Model):
     # Clés étrangères
     department_id = db.Column(db.Integer, db.ForeignKey('department.department_id'), index=True)
     role_id = db.Column(db.Integer, db.ForeignKey('role.role_id'), nullable=False, index=True)
-    
+    campus_id = db.Column(
+        db.Integer,
+        db.ForeignKey('campus.campus_id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
+
     # Relations
     role = db.relationship('Role', back_populates='users')
     department = db.relationship('Department', back_populates='users')
+    campus = db.relationship('Campus', back_populates='users')
     notifications = db.relationship('Notification', back_populates='user', lazy='dynamic')
     search_history = db.relationship('SearchHistory', back_populates='user', lazy='dynamic')
+
+    @property
+    def is_super_admin(self):
+        return bool(self.role and self.role.name == 'Admin' and self.campus_id is None)
     
     def set_password(self, password):
         """Hash le mot de passe"""
@@ -54,7 +65,10 @@ class UserAccount(db.Model):
             'last_login': self.last_login.isoformat() if self.last_login else None,
             'two_fa_enabled': self.two_fa_enabled,
             'role': self.role.to_dict() if self.role else None,
-            'department': self.department.to_dict() if self.department else None
+            'department': self.department.to_dict() if self.department else None,
+            'campus_id': self.campus_id,
+            'campus': self.campus.to_dict() if self.campus else None,
+            'is_super_admin': self.is_super_admin,
         }
         if include_sensitive:
             data['preferences'] = self.get_preferences()

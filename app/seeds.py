@@ -12,11 +12,14 @@ Exécution :
 """
 
 from extensions import db
-from app.models.role import Role
+from app.models.campus import Campus
 from app.models.department import Department
-from app.models.folder import Folder
-from app.models.user import UserAccount
 from app.models.doc_type import DocType
+from app.models.folder import Folder
+from app.models.institution import Institution
+from app.models.role import Role
+from app.models.setting import Setting
+from app.models.user import UserAccount
 
 # ---------------------------------------------------------------------------
 # Contenu de référence (identique à l'historique init_db.py)
@@ -62,6 +65,19 @@ DEFAULT_ADMIN = {
     'password': 'Admin@2024',
 }
 
+DEFAULT_CAMPUS = {
+    'code': 'PRINCIPAL',
+    'name': 'Campus principal',
+    'city': None,
+}
+
+DEFAULT_INSTITUTION = {
+    'name': 'Mon établissement',
+    'short_name': None,
+    'locale': 'fr',
+    'timezone': 'Africa/Douala',
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -78,6 +94,47 @@ def _existing(model, column, values):
 # ---------------------------------------------------------------------------
 # Cibles
 # ---------------------------------------------------------------------------
+
+def seed_institution() -> int:
+    """Crée la ligne unique de profil de l'établissement (1 si créée, 0 sinon)."""
+    if Institution.get() is not None:
+        return 0
+    institution = Institution(institution_id=1, **DEFAULT_INSTITUTION)
+    db.session.add(institution)
+    db.session.commit()
+    return 1
+
+
+def seed_campuses() -> int:
+    """Crée le campus principal (idempotent)."""
+    existing = Campus.query.filter_by(code=DEFAULT_CAMPUS['code']).first()
+    if existing is not None:
+        return 0
+    campus = Campus(**DEFAULT_CAMPUS)
+    db.session.add(campus)
+    db.session.commit()
+    return 1
+
+
+def seed_settings() -> int:
+    """Inscrit les réglages globaux d'usine à partir du registre typé."""
+    from app.settings.registry import REGISTRY
+
+    present = _existing_setting_keys()
+    to_create = [
+        Setting(key=key, scope='global', campus_id=None, value=defn.default)
+        for key, defn in REGISTRY.items() if key not in present
+    ]
+    if to_create:
+        db.session.add_all(to_create)
+        db.session.commit()
+    return len(to_create)
+
+
+def _existing_setting_keys() -> set:
+    rows = db.session.query(Setting.key).filter_by(scope='global').all()
+    return {row[0] for row in rows}
+
 
 def seed_roles() -> int:
     """Crée les 4 rôles standards. Retourne le nombre de rôles créés."""
@@ -114,8 +171,12 @@ def seed_doctypes() -> int:
 
 
 def seed_departments() -> int:
-    """Crée les départements (dépend des rôles non, des dossiers : si)."""
+    """Crée les départements rattachés au campus principal (dépend des dossiers)."""
     seed_folders()
+    seed_campuses()
+    campus = Campus.query.filter_by(code=DEFAULT_CAMPUS['code']).first()
+    if campus is None:  # pragma: no cover — seed_campuses vient de le créer
+        raise RuntimeError('Campus principal introuvable après seed.')
     present = _existing(Department, 'code', [code for _, code, _, _ in DEPARTMENTS])
     to_create = []
     for name, code, description, folder_name in DEPARTMENTS:
@@ -127,6 +188,7 @@ def seed_departments() -> int:
             code=code,
             description=description,
             folder_id=folder.folder_id if folder else None,
+            campus_id=campus.campus_id,
         ))
     if to_create:
         db.session.add_all(to_create)
@@ -163,6 +225,7 @@ def seed_admin(username=DEFAULT_ADMIN['username'],
         full_name=DEFAULT_ADMIN['full_name'],
         role_id=admin_role.role_id,
         department_id=admin_dept.department_id,
+        campus_id=None,
         is_active=True,
     )
     admin_user.set_password(password)
@@ -180,6 +243,7 @@ def seed_demo() -> int:
     """
     seed_roles()
     seed_departments()
+    campus = Campus.query.filter_by(code=DEFAULT_CAMPUS['code']).first()
 
     role_names = ['Prof', 'Secretaire', 'Etudiant']
     # Les logins sont en minuscules ('prof'…) : la vérification doit porter sur
@@ -202,6 +266,7 @@ def seed_demo() -> int:
             full_name=f'{role_name} (démo)',
             role_id=role.role_id,
             department_id=info.department_id if info else None,
+            campus_id=campus.campus_id if campus else None,
             is_active=True,
         )
         user.set_password('Demo@2024')
@@ -214,6 +279,9 @@ def seed_demo() -> int:
 
 
 SEEDS = {
+    'institution': seed_institution,
+    'campuses': seed_campuses,
+    'settings': seed_settings,
     'roles': seed_roles,
     'folders': seed_folders,
     'doctypes': seed_doctypes,
@@ -226,6 +294,9 @@ SEEDS = {
 def seed_all(username=None, password=None) -> dict:
     """Exécute toutes les cibles dans l'ordre de dépendance."""
     return {
+        'institution': seed_institution(),
+        'campuses': seed_campuses(),
+        'settings': seed_settings(),
         'roles': seed_roles(),
         'folders': seed_folders(),
         'doctypes': seed_doctypes(),

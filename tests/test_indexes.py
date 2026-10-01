@@ -1,11 +1,11 @@
 """
-Index de base de données (plan 07 — P0.9).
+Index de base de données (plan 07 — P0.9 puis P1).
 
 Deux sources doivent rester alignées :
 
 * les **modèles** (`index=True` / `db.Index`) → `create_all()` des bases fraîches ;
-* la **migration** `e5f0a1b2c3d4` → bases préexistantes stampées sur la
-  baseline `23042faea7a9` par l'entrypoint.
+* les **migrations** (`e5f0a1b2c3d4` puis `f1a2b3c4d5e6`) → bases préexistantes
+  stampées sur la baseline `23042faea7a9` par l'entrypoint.
 
 Le moindre écart (un index ajouté au modèle sans migration, ou l'inverse) fait
 échouer `test_migration_et_modeles_sont_alignes`.
@@ -20,11 +20,12 @@ from extensions import db
 
 MIGRATIONS_DIR = (pathlib.Path(__file__).resolve().parent.parent
                   / 'migrations' / 'versions')
-REVISION = 'e5f0a1b2c3d4'
+REVISION_P0 = 'e5f0a1b2c3d4'
+REVISION_P1 = 'f1a2b3c4d5e6'
 BASELINE = '23042faea7a9'
 
-# Contrat des index attendus (24).
-EXPECTED = {
+# Contrat des index attendus — P0 (24).
+EXPECTED_P0 = {
     # document : filtres (FK, statut, confidentialité) + tri
     'ix_document_department_id',
     'ix_document_doc_type_id',
@@ -56,16 +57,41 @@ EXPECTED = {
     'ix_security_alert_user_id',
 }
 
+# Contrat des index ajoutés en P1 (multi-campus + réglages).
+EXPECTED_P1 = {
+    'ix_campus_is_active',
+    'ix_department_campus_id',
+    'uq_department_campus_code',
+    'ix_folder_campus_id',
+    'ix_user_account_campus_id',
+    'ix_document_campus_id',
+    'ix_document_campus_status_created_at',
+    'ix_setting_key',
+    'ix_setting_campus_id',
+    'uq_setting_global',
+    'uq_setting_campus',
+}
 
-def load_migration():
-    """Importe la migration depuis son fichier (hors paquet `app`)."""
-    path = MIGRATIONS_DIR / f'{REVISION}_add_indexes_p0.py'
-    spec = importlib.util.spec_from_file_location('add_indexes_p0', path)
+EXPECTED = EXPECTED_P0 | EXPECTED_P1
+
+
+def load_migration(revision, filename):
+    """Importe une migration depuis son fichier (hors paquet `app`)."""
+    path = MIGRATIONS_DIR / f'{revision}_{filename}.py'
+    spec = importlib.util.spec_from_file_location(revision, path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f'Migration illisible : {path}')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def load_p0():
+    return load_migration(REVISION_P0, 'add_indexes_p0')
+
+
+def load_p1():
+    return load_migration(REVISION_P1, 'campus_institution_setting')
 
 
 def model_index_names():
@@ -82,10 +108,9 @@ def ddl_index_names(statements):
     return {s.split('IF NOT EXISTS ')[1].split(' ON ')[0] for s in statements}
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- #
 # Contrat
-# ---------------------------------------------------------------------------
-
+# --------------------------------------------------------------------------- #
 
 def test_les_modeles_declarent_exactement_les_index_attendus():
     assert model_index_names() == EXPECTED
@@ -93,35 +118,29 @@ def test_les_modeles_declarent_exactement_les_index_attendus():
 
 def test_migration_et_modeles_sont_alignes():
     """Tout index du modèle existe en migration, et réciproquement."""
-    migration = load_migration()
+    p0, p1 = load_p0(), load_p1()
 
-    assert ddl_index_names(migration.INDEXES) == model_index_names()
-    assert len(migration.INDEXES) == len(model_index_names())  # pas de doublon
-
-
-def test_migration_repose_sur_la_baseline_immuable():
-    migration = load_migration()
-
-    assert migration.revision == REVISION
-    assert migration.down_revision == BASELINE
-    assert list(MIGRATIONS_DIR.glob(f'{BASELINE}*.py')), "migration initiale absente"
-    # Le maillon intermédiaire ne doit pas être perdu
-    assert migration.down_revision == '23042faea7a9'
+    migration_names = (ddl_index_names(p0.INDEXES) | ddl_index_names(p1.INDEXES))
+    assert migration_names == model_index_names()
+    assert len(p0.INDEXES) + len(p1.INDEXES) == len(model_index_names())  # pas de doublon
 
 
-# ---------------------------------------------------------------------------
+def test_migrations_reposent_sur_la_baseline_immuable():
+    p0, p1 = load_p0(), load_p1()
+
+    assert p0.revision == REVISION_P0
+    assert p0.down_revision == BASELINE
+    assert p1.revision == REVISION_P1
+    assert p1.down_revision == REVISION_P0
+
+
+# --------------------------------------------------------------------------- #
 # Sémantique des index chauds
-# ---------------------------------------------------------------------------
-
+# --------------------------------------------------------------------------- #
 
 def test_index_couvre_le_compteur_de_tentatives_echouees():
-    """
-    `_check_multiple_failed_attempts` filtre
-    `action = … AND user_id = … AND created_at >= …` : cet index lui évite une
-    séquentielle sur le journal à chaque échec de connexion.
-    """
-    migration = load_migration()
-    stmt = next(s for s in migration.INDEXES
+    p0 = load_p0()
+    stmt = next(s for s in p0.INDEXES
                 if s.startswith('CREATE INDEX IF NOT EXISTS '
                                 'ix_audit_log_action_user_id_created_at'))
 
@@ -130,25 +149,29 @@ def test_index_couvre_le_compteur_de_tentatives_echouees():
 
 def test_index_couvre_les_listes_de_documents():
     """`WHERE status = … ORDER BY created_at DESC` → index composite."""
-    migration = load_migration()
-    stmt = next(s for s in migration.INDEXES
+    p0 = load_p0()
+    stmt = next(s for s in p0.INDEXES
                 if s.startswith('CREATE INDEX IF NOT EXISTS '
                                 'ix_document_status_created_at'))
 
     assert 'ON document (status, created_at)' in stmt
 
 
-# ---------------------------------------------------------------------------
-# Exécution réelle
-# ---------------------------------------------------------------------------
+def test_index_p1_filtre_par_campus_et_par_age():
+    p1 = load_p1()
+    names = ddl_index_names(p1.INDEXES)
 
+    assert 'ix_document_campus_status_created_at' in names
+    assert 'uq_department_campus_code' in names
+    assert 'uq_setting_global' in names
+
+
+# --------------------------------------------------------------------------- #
+# Exécution réelle
+# --------------------------------------------------------------------------- #
 
 def existing_ix_indexes():
-    """Index `ix_*` réellement présents — requête adaptée au dialecte.
-
-    SQLite lit `sqlite_master`, PostgreSQL lit `pg_indexes` : la suite doit
-    passer dans les deux cas (SQLite en local, `postgres:16` en CI).
-    """
+    """Index `ix_*` réellement présents — requête adaptée au dialecte."""
     if db.engine.dialect.name == 'postgresql':
         rows = db.session.execute(text(
             "SELECT indexname FROM pg_indexes "
@@ -163,22 +186,22 @@ def existing_ix_indexes():
 
 def test_sql_des_index_s_execute_et_est_idempotent():
     """Le DDL tourne sur SQLite (tests) et Postgres (prod), deux fois de suite."""
-    migration = load_migration()
+    statements = load_p0().INDEXES + load_p1().INDEXES
 
-    for statement in migration.INDEXES:
+    for statement in statements:
         db.session.execute(text(statement))
         db.session.execute(text(statement))  # IF NOT EXISTS : pas d'erreur
     db.session.commit()
 
-    assert EXPECTED <= existing_ix_indexes()
+    assert ({i for i in EXPECTED if i.startswith('ix_')}
+            <= existing_ix_indexes())
 
 
 def test_downgrade_retire_les_index():
     """`downgrade()` : les requêtes DROP doivent être syntaxiquement valides."""
-    migration = load_migration()
-
-    drops = migration.drop_statements()
-    assert len(drops) == len(migration.INDEXES)
+    drops = load_p0().drop_statements() + load_p1().drop_statements()
+    statements = load_p0().INDEXES + load_p1().INDEXES
+    assert len(drops) == len(statements)
     assert all(s.startswith('DROP INDEX IF EXISTS ') and ' ON ' not in s
                for s in drops), "le DROP doit être `DROP INDEX IF EXISTS <nom>`"
 
@@ -186,4 +209,4 @@ def test_downgrade_retire_les_index():
         db.session.execute(text(statement))
     db.session.commit()
 
-    assert existing_ix_indexes() & EXPECTED == set()
+    assert existing_ix_indexes() & EXPECTED_P0 == set()

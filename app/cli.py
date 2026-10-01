@@ -33,6 +33,27 @@ def seed_group():
         db.create_all()
 
 
+@seed_group.command('institution')
+@with_appcontext
+def seed_institution_cmd():
+    """Profil de l'établissement (ligne unique)."""
+    _report('institution', seeds.seed_institution())
+
+
+@seed_group.command('campuses')
+@with_appcontext
+def seed_campuses_cmd():
+    """Campus principal initial."""
+    _report('campus', seeds.seed_campuses())
+
+
+@seed_group.command('settings')
+@with_appcontext
+def seed_settings_cmd():
+    """Réglages globaux d'usine (registre typé)."""
+    _report('réglages', seeds.seed_settings())
+
+
 @seed_group.command('roles')
 @with_appcontext
 def seed_roles_cmd():
@@ -89,6 +110,9 @@ def seed_all_cmd(username, password):
     click.echo("Seed complet…")
     results = seeds.seed_all(username=username, password=password)
     labels = {
+        'institution': 'institution',
+        'campuses': 'campus',
+        'settings': 'réglages',
         'roles': 'rôles',
         'folders': 'dossiers',
         'doctypes': 'types de documents',

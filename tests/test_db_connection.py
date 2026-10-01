@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from app import seeds
 from app.models.department import Department
 from app.models.doc_type import DocType
+from app.models.campus import Campus
 from app.models.document import Document
 from app.models.document_version import DocumentVersion
 from app.models.folder import Folder
@@ -21,11 +22,11 @@ from app.models.user import UserAccount
 from extensions import db
 
 EXPECTED_TABLES = {
-    'audit_log', 'department', 'doc_type', 'document', 'document_tag',
-    'document_version', 'folder', 'notification', 'password_reset_token',
-    'role', 'role_document_right', 'role_folder_right', 'search_history',
-    'security_alert', 'tag', 'two_factor_code', 'user_account',
-    'user_document_right', 'user_folder_right',
+    'audit_log', 'campus', 'department', 'doc_type', 'document', 'document_tag',
+    'document_version', 'folder', 'institution', 'notification',
+    'password_reset_token', 'role', 'role_document_right', 'role_folder_right',
+    'search_history', 'security_alert', 'setting', 'tag', 'two_factor_code',
+    'user_account', 'user_document_right', 'user_folder_right',
 }
 
 
@@ -64,7 +65,9 @@ def test_cree_une_ligne_et_se_sérialise(app):
         user = UserAccount.query.filter_by(username='admin').first()
         doc_type = DocType.query.filter_by(name='Rapport').first()
         folder = Folder.query.filter_by(name='Archives Académiques').first()
-        assert user is not None and doc_type is not None and folder is not None
+        campus = Campus.query.filter_by(code='PRINCIPAL').first()
+        assert (user is not None and doc_type is not None
+                and folder is not None and campus is not None)
         tag = Tag(name='soutenance')
         db.session.add(tag)
 
@@ -74,6 +77,7 @@ def test_cree_une_ligne_et_se_sérialise(app):
             doc_type_id=doc_type.doc_type_id,
             department_id=user.department_id,
             folder_id=folder.folder_id,
+            campus_id=campus.campus_id,
         )
         document.tags.append(tag)
         version = DocumentVersion(
@@ -93,6 +97,7 @@ def test_cree_une_ligne_et_se_sérialise(app):
         doc_type_id = doc_type.doc_type_id
         folder_id = folder.folder_id
         department_id = user.department_id
+        campus_id = campus.campus_id
         payload = document.to_dict(include_versions=True)
 
     assert payload['document_id'] == document_id
@@ -100,6 +105,7 @@ def test_cree_une_ligne_et_se_sérialise(app):
     assert payload['doc_type_id'] == doc_type_id
     assert payload['folder_id'] == folder_id
     assert payload['department_id'] == department_id
+    assert payload['campus_id'] == campus_id
     assert [v['version_number'] for v in payload['versions']] == [1]
 
 
