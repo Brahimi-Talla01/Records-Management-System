@@ -17,7 +17,7 @@ from __future__ import annotations
 import time
 from datetime import datetime
 
-from sqlalchemy import func, or_
+from sqlalchemy import String, func, literal, or_
 
 from app.documents.repositories import parse_date
 from app.errors import PermissionDeniedError
@@ -33,6 +33,11 @@ from extensions import db
 TRIGRAM_THRESHOLD = 0.3
 HIGHLIGHT_OPTIONS = ('StartSel=<mark>, StopSel=</mark>, '
                      'MaxFragments=2, MaxWords=35, MinWords=15')
+
+# Dictionnaire de recherche : littéral `String` explicite, car le `REGCONFIG`
+# que SQLAlchemy en déduit n'a pas de processeur littéral et ferait échouer
+# toute compilation `literal_binds` (l'EXPLAIN de `flask perf explain`).
+SEARCH_CONFIG = literal('french', type_=String)
 
 
 def _int(params, key, default=None):
@@ -114,7 +119,7 @@ class SearchService:
     def _text_condition(q: str):
         """(condition, rank | None, tsquery | None) selon le dialecte."""
         if SearchService.is_postgres():
-            tsquery = func.websearch_to_tsquery('french', q)
+            tsquery = func.websearch_to_tsquery(SEARCH_CONFIG, q)
             condition = or_(
                 Document.search_vector.op('@@')(tsquery),
                 func.similarity(Document.title, q) > TRIGRAM_THRESHOLD,
@@ -130,7 +135,7 @@ class SearchService:
     @staticmethod
     def _headline(tsquery):
         return func.ts_headline(
-            'french',
+            SEARCH_CONFIG,
             func.coalesce(Document.description, Document.title),
             tsquery,
             HIGHLIGHT_OPTIONS,
