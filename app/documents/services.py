@@ -124,8 +124,7 @@ class DocumentService:
 
     @staticmethod
     def _require(actor, document, action):
-        allowed, reason = PermissionService.explain(actor, document, action)
-        if not allowed:
+        if not PermissionService.explain(actor, document, action)['allowed']:
             _forbid("Action non autorisée sur ce document.",
                     'document_forbidden')
 

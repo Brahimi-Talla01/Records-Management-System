@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request, send_file
 from app.auth.session_auth import get_current_user, session_required
 from app.documents.services import DocumentService, safe_download_name
 from app.errors import UnprocessableEntityError
+from app.permissions.decorators import require_permission
 from app.services import audit_service
 from app.storage import get_storage
 
@@ -46,7 +47,7 @@ def bulk_documents():
 
 
 @documents_bp.route('/<int:document_id>', methods=['GET'])
-@session_required
+@require_permission('view')
 def get_document(document_id):
     actor = get_current_user()
     document = DocumentService.get_document(actor, document_id)
@@ -63,7 +64,7 @@ def create_document():
 
 
 @documents_bp.route('/<int:document_id>', methods=['PATCH'])
-@session_required
+@require_permission('edit')
 def update_document(document_id):
     actor = get_current_user()
     document = DocumentService.update_document(actor, document_id, _payload())
@@ -71,7 +72,7 @@ def update_document(document_id):
 
 
 @documents_bp.route('/<int:document_id>', methods=['DELETE'])
-@session_required
+@require_permission('delete')
 def delete_document(document_id):
     actor = get_current_user()
     document = DocumentService.soft_delete(actor, document_id)
@@ -79,7 +80,7 @@ def delete_document(document_id):
 
 
 @documents_bp.route('/<int:document_id>/restore', methods=['POST'])
-@session_required
+@require_permission('edit')
 def restore_document(document_id):
     actor = get_current_user()
     document = DocumentService.restore(actor, document_id)
@@ -87,7 +88,7 @@ def restore_document(document_id):
 
 
 @documents_bp.route('/<int:document_id>/versions', methods=['GET'])
-@session_required
+@require_permission('view')
 def list_versions(document_id):
     actor = get_current_user()
     versions = DocumentService.list_versions(actor, document_id)
@@ -95,7 +96,7 @@ def list_versions(document_id):
 
 
 @documents_bp.route('/<int:document_id>/versions', methods=['POST'])
-@session_required
+@require_permission('edit')
 def add_version(document_id):
     actor = get_current_user()
     version = DocumentService.add_version(actor, document_id,
@@ -106,7 +107,7 @@ def add_version(document_id):
 
 @documents_bp.route('/<int:document_id>/versions/<int:version_id>/download',
                     methods=['GET'])
-@session_required
+@require_permission('download')
 def download_version(document_id, version_id):
     actor = get_current_user()
     document, version = DocumentService.version_file(actor, document_id, version_id)
@@ -122,7 +123,7 @@ def download_version(document_id, version_id):
 
 @documents_bp.route('/<int:document_id>/versions/<int:version_id>/restore',
                     methods=['POST'])
-@session_required
+@require_permission('edit')
 def restore_version(document_id, version_id):
     actor = get_current_user()
     version = DocumentService.restore_version(actor, document_id, version_id)
@@ -130,7 +131,7 @@ def restore_version(document_id, version_id):
 
 
 @documents_bp.route('/<int:document_id>/preview', methods=['GET'])
-@session_required
+@require_permission('view')
 def preview_document(document_id):
     actor = get_current_user()
     document, version = DocumentService.latest_version(actor, document_id)
@@ -143,7 +144,7 @@ def preview_document(document_id):
 
 
 @documents_bp.route('/<int:document_id>/tags', methods=['POST'])
-@session_required
+@require_permission('edit')
 def add_tags(document_id):
     actor = get_current_user()
     names = (request.get_json(silent=True) or {}).get('tags') or []
@@ -152,7 +153,7 @@ def add_tags(document_id):
 
 
 @documents_bp.route('/<int:document_id>/tags', methods=['DELETE'])
-@session_required
+@require_permission('edit')
 def remove_tags(document_id):
     actor = get_current_user()
     names = (request.get_json(silent=True) or {}).get('tags') or []
