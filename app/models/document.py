@@ -1,5 +1,16 @@
 from datetime import datetime
+
+from sqlalchemy.types import UserDefinedType
+
 from extensions import db
+
+
+class TSVector(UserDefinedType):
+    """Type `tsvector` PostgreSQL — alimenté par trigger (migration P4)."""
+
+    def get_col_spec(self) -> str:
+        return 'TSVECTOR'
+
 
 class Document(db.Model):
     __tablename__ = 'document'
@@ -21,6 +32,7 @@ class Document(db.Model):
     is_encrypted = db.Column(db.Boolean, default=False)
     ocr_text = db.Column(db.Text)
     size_bytes = db.Column(db.BigInteger)
+    search_vector = db.Column(TSVector)
 
     # Clés Étrangères
     department_id = db.Column(

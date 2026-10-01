@@ -3,7 +3,12 @@ from datetime import datetime
 
 class Notification(db.Model):
     __tablename__ = 'notification'
-    
+
+    __table_args__ = (
+        db.Index('ix_notification_user_is_read_created_at',
+                 'user_id', 'is_read', 'created_at'),
+    )
+
     notification_id = db.Column(db.Integer, primary_key=True)
     type = db.Column(db.String(50))
     title = db.Column(db.String(100))

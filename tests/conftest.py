@@ -137,9 +137,14 @@ def login(app, client, username, password):
     """
     Connexion complète : login → code 2FA (lu en base, pas d'email) →
     verify-2fa (cookies posés). Retourne une AuthSession.
+
+    Chaque session reçoit son propre client HTTP : deux sessions peuvent
+    coexister dans un test (ex. admin + étudiant) sans se voler les cookies.
     """
-    resp = client.post('/api/auth/login',
-                       json={'username': username, 'password': password})
+    session_client = app.test_client()
+
+    resp = session_client.post('/api/auth/login',
+                               json={'username': username, 'password': password})
     assert resp.status_code == 200, resp.get_json()
     data = resp.get_json()
     assert data.get('requires_2fa') is True, data
@@ -153,16 +158,16 @@ def login(app, client, username, password):
         assert row is not None, "code 2FA non émis par le login"
         code = row.code
 
-    resp = client.post('/api/auth/verify-2fa',
-                       json={'user_id': data['user_id'], 'code': code})
+    resp = session_client.post('/api/auth/verify-2fa',
+                               json={'user_id': data['user_id'], 'code': code})
     assert resp.status_code == 200, resp.get_json()
 
-    csrf = client.get_cookie(app.config['CSRF_COOKIE_NAME'])
+    csrf = session_client.get_cookie(app.config['CSRF_COOKIE_NAME'])
     assert csrf is not None, "cookie CSRF absent après verify-2fa"
-    session_cookie = client.get_cookie(app.config['SESSION_COOKIE_NAME'])
+    session_cookie = session_client.get_cookie(app.config['SESSION_COOKIE_NAME'])
     assert session_cookie is not None, "cookie de session absent après verify-2fa"
 
-    return AuthSession(client, data['user_id'], csrf.value, username)
+    return AuthSession(session_client, data['user_id'], csrf.value, username)
 
 
 @pytest.fixture

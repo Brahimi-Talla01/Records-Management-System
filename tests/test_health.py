@@ -22,8 +22,12 @@ def test_documents_exige_une_session(client):
     assert client.get('/api/documents').status_code == 401
 
 
-def test_les_routes_stub_ne_renvoient_pas_de_contenu_indésirable(client):
-    """dashboard et search restent des stubs jusqu'à P4."""
-    for path in ('/api/dashboard/', '/api/search/'):
+def test_les_endpoints_p4_exigent_une_session(client):
+    """Dashboard, recherche et notifications : 401 sans session (P4)."""
+    for path in ('/api/dashboard/summary', '/api/dashboard/activity',
+                 '/api/dashboard/expiring', '/api/dashboard/uploads',
+                 '/api/dashboard/recent-documents',
+                 '/api/search?q=test', '/api/search/history',
+                 '/api/notifications', '/api/notifications/unread-count'):
         resp = client.get(path)
-        assert resp.status_code in (200, 401, 403), (path, resp.status_code)
+        assert resp.status_code == 401, (path, resp.status_code)

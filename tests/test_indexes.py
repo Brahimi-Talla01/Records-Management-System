@@ -1,14 +1,17 @@
 """
-Index de base de données (plan 07 — P0.9 puis P1).
+Index de base de données (plan 07 — P0.9, P1 puis P4).
 
 Deux sources doivent rester alignées :
 
 * les **modèles** (`index=True` / `db.Index`) → `create_all()` des bases fraîches ;
-* les **migrations** (`e5f0a1b2c3d4` puis `f1a2b3c4d5e6`) → bases préexistantes
-  stampées sur la baseline `23042faea7a9` par l'entrypoint.
+* les **migrations** (`e5f0a1b2c3d4`, `f1a2b3c4d5e6` puis `b4c5d6e7f8a9`) → bases
+  préexistantes stampées sur la baseline `23042faea7a9` par l'entrypoint.
 
 Le moindre écart (un index ajouté au modèle sans migration, ou l'inverse) fait
 échouer `test_migration_et_modeles_sont_alignes`.
+
+Les index PostgreSQL purs (GIN tsvector / pg_trgm, P4) ne sont PAS dans ce
+contrat : ils sont créés par la migration, uniquement sur PostgreSQL.
 """
 
 import importlib.util
@@ -22,6 +25,7 @@ MIGRATIONS_DIR = (pathlib.Path(__file__).resolve().parent.parent
                   / 'migrations' / 'versions')
 REVISION_P0 = 'e5f0a1b2c3d4'
 REVISION_P1 = 'f1a2b3c4d5e6'
+REVISION_P4 = 'b4c5d6e7f8a9'
 BASELINE = '23042faea7a9'
 
 # Contrat des index attendus — P0 (24).
@@ -72,7 +76,13 @@ EXPECTED_P1 = {
     'uq_setting_campus',
 }
 
-EXPECTED = EXPECTED_P0 | EXPECTED_P1
+# Contrat des index ajoutés en P4 (recherche, dashboard, notifications).
+EXPECTED_P4 = {
+    'ix_notification_user_is_read_created_at',
+    'ix_search_history_user_searched_at',
+}
+
+EXPECTED = EXPECTED_P0 | EXPECTED_P1 | EXPECTED_P4
 
 
 def load_migration(revision, filename):
@@ -92,6 +102,10 @@ def load_p0():
 
 def load_p1():
     return load_migration(REVISION_P1, 'campus_institution_setting')
+
+
+def load_p4():
+    return load_migration(REVISION_P4, 'search_dashboard_notifications')
 
 
 def model_index_names():
@@ -118,20 +132,25 @@ def test_les_modeles_declarent_exactement_les_index_attendus():
 
 def test_migration_et_modeles_sont_alignes():
     """Tout index du modèle existe en migration, et réciproquement."""
-    p0, p1 = load_p0(), load_p1()
+    p0, p1, p4 = load_p0(), load_p1(), load_p4()
 
-    migration_names = (ddl_index_names(p0.INDEXES) | ddl_index_names(p1.INDEXES))
+    migration_names = (ddl_index_names(p0.INDEXES)
+                       | ddl_index_names(p1.INDEXES)
+                       | ddl_index_names(p4.INDEXES))
     assert migration_names == model_index_names()
-    assert len(p0.INDEXES) + len(p1.INDEXES) == len(model_index_names())  # pas de doublon
+    assert (len(p0.INDEXES) + len(p1.INDEXES) + len(p4.INDEXES)
+            == len(model_index_names()))  # pas de doublon
 
 
 def test_migrations_reposent_sur_la_baseline_immuable():
-    p0, p1 = load_p0(), load_p1()
+    p0, p1, p4 = load_p0(), load_p1(), load_p4()
 
     assert p0.revision == REVISION_P0
     assert p0.down_revision == BASELINE
     assert p1.revision == REVISION_P1
     assert p1.down_revision == REVISION_P0
+    assert p4.revision == REVISION_P4
+    assert p4.down_revision == REVISION_P1
 
 
 # --------------------------------------------------------------------------- #
@@ -166,6 +185,31 @@ def test_index_p1_filtre_par_campus_et_par_age():
     assert 'uq_setting_global' in names
 
 
+def test_index_p4_couvre_le_badge_et_l_historique():
+    p4 = load_p4()
+    names = ddl_index_names(p4.INDEXES)
+
+    assert 'ix_notification_user_is_read_created_at' in names
+    assert 'ix_search_history_user_searched_at' in names
+
+
+def test_index_p4_fulltext_reserves_a_postgresql():
+    """GIN tsvector / pg_trgm : DDL séparé, jamais exécuté sur SQLite."""
+    p4 = load_p4()
+
+    assert any('USING GIN (search_vector)' in s for s in p4.PG_DDL)
+    assert any('gin_trgm_ops' in s for s in p4.PG_DDL)
+    assert any('CREATE TRIGGER trg_document_search_vector' in s
+               for s in p4.PG_DDL)
+    assert p4.drop_statements() == [
+        'DROP INDEX IF EXISTS ix_notification_user_is_read_created_at',
+        'DROP INDEX IF EXISTS ix_search_history_user_searched_at',
+    ]
+    for statement in p4.PG_DDL + p4.PG_DOWNGRADE:
+        assert 'notification (' not in statement
+        assert 'search_history (' not in statement
+
+
 # --------------------------------------------------------------------------- #
 # Exécution réelle
 # --------------------------------------------------------------------------- #
@@ -186,7 +230,8 @@ def existing_ix_indexes():
 
 def test_sql_des_index_s_execute_et_est_idempotent():
     """Le DDL tourne sur SQLite (tests) et Postgres (prod), deux fois de suite."""
-    statements = load_p0().INDEXES + load_p1().INDEXES
+    statements = (load_p0().INDEXES + load_p1().INDEXES
+                  + load_p4().INDEXES)
 
     for statement in statements:
         db.session.execute(text(statement))
@@ -199,8 +244,10 @@ def test_sql_des_index_s_execute_et_est_idempotent():
 
 def test_downgrade_retire_les_index():
     """`downgrade()` : les requêtes DROP doivent être syntaxiquement valides."""
-    drops = load_p0().drop_statements() + load_p1().drop_statements()
-    statements = load_p0().INDEXES + load_p1().INDEXES
+    drops = (load_p0().drop_statements() + load_p1().drop_statements()
+             + load_p4().drop_statements())
+    statements = (load_p0().INDEXES + load_p1().INDEXES
+                  + load_p4().INDEXES)
     assert len(drops) == len(statements)
     assert all(s.startswith('DROP INDEX IF EXISTS ') and ' ON ' not in s
                for s in drops), "le DROP doit être `DROP INDEX IF EXISTS <nom>`"
