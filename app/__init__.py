@@ -96,8 +96,12 @@ def create_app(config_name='default'):
 
     from app.campuses.routes import campuses_bp
     from app.settings.routes import settings_bp
+    from app.folders.routes import folders_bp
+    from app.referentials.routes import referentials_bp
     application.register_blueprint(campuses_bp)
     application.register_blueprint(settings_bp)
+    application.register_blueprint(folders_bp)
+    application.register_blueprint(referentials_bp)
 
     # Enregistrer les blueprints documents / dashboard / search
     from app.documents.routes import documents_bp

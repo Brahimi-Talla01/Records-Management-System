@@ -15,6 +15,9 @@ env/
 instance/
 .webassets-cache
 
+# Uploads
+uploads/
+
 # Tests
 .pytest_cache/
 .coverage
