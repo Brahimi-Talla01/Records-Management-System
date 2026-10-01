@@ -1,5 +1,9 @@
-from flask import Flask
+import os
+
+from flask import Flask, jsonify
 from flask_migrate import Migrate
+from sqlalchemy import text
+
 from config import config
 from extensions import db, bcrypt, cors, mail, limiter
 
@@ -115,6 +119,12 @@ def create_app(config_name='default'):
     application.register_blueprint(search_bp, url_prefix='/api/search')
     application.register_blueprint(notifications_bp, url_prefix='/api/notifications')
 
+    # Enregistrer les blueprints audit / rétention (P5)
+    from app.audit.routes import audit_bp
+    from app.retention.routes import retention_bp
+    application.register_blueprint(audit_bp, url_prefix='/api/audit')
+    application.register_blueprint(retention_bp, url_prefix='/api/admin/retention')
+
     # Commandes CLI (flask seed roles|folders|doctypes|departments|admin|demo|all)
     from app.cli import register_commands
     register_commands(application)
@@ -123,5 +133,42 @@ def create_app(config_name='default'):
     @application.route('/health')
     def health():
         return {'status': 'ok'}, 200
+
+    # Readiness (healthcheck Docker) : base de données + Redis vérifiés (P5)
+    @application.route('/health/ready')
+    def health_ready():
+        checks = {}
+        ready = True
+        try:
+            db.session.execute(text('SELECT 1'))
+            checks['database'] = 'ok'
+        except Exception:
+            checks['database'] = 'error'
+            ready = False
+
+        if application.config.get('REDIS_URL'):
+            try:
+                import redis as redis_lib
+                client = redis_lib.Redis.from_url(
+                    application.config['REDIS_URL'], socket_connect_timeout=2)
+                client.ping()
+                checks['redis'] = 'ok'
+            except Exception:
+                checks['redis'] = 'error'
+                ready = False
+        else:
+            checks['redis'] = 'skipped'
+
+        return jsonify({'status': 'ready' if ready else 'degraded',
+                        'checks': checks}), (200 if ready else 503)
+
+    # Version déployée (P5 — §4.8)
+    @application.route('/api/version')
+    def api_version():
+        return jsonify({
+            'version': os.environ.get('APP_VERSION', '1.0.0'),
+            'commit': os.environ.get('GIT_COMMIT', 'unknown'),
+            'build_date': os.environ.get('APP_BUILD_DATE'),
+        }), 200
 
     return application
