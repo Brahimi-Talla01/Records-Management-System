@@ -107,7 +107,12 @@ _DOCUMENT_FILTERS = (
     _q('created_to', 'string', 'Date ISO 8601'),
     _q('sort', 'string', 'Colonne de tri'),
     _q('order', 'string', 'asc | desc'),
-) + _PAGE
+)
+
+_KEYSET_PARAMS = (
+    _q('pagination', 'string', '`offset` (défaut) ou `keyset` (page suivante sans COUNT)'),
+    _q('cursor', 'string', 'Curseur renvoyé par `next_cursor` (implique `keyset`)'),
+)
 
 _SEARCH_FILTERS = (
     _q('q', 'string', 'Requête plein texte'),
@@ -146,8 +151,8 @@ _FOLDER_FILTERS = (
 )
 
 QUERY_PARAMS: dict[tuple[str, str], tuple[dict, ...]] = {
-    ('GET', '/api/documents'): _DOCUMENT_FILTERS,
-    ('GET', '/api/documents/export'): _DOCUMENT_FILTERS,
+    ('GET', '/api/documents'): _DOCUMENT_FILTERS + _PAGE + _KEYSET_PARAMS,
+    ('GET', '/api/documents/export'): _DOCUMENT_FILTERS + _PAGE,
     ('GET', '/api/search'): _SEARCH_FILTERS,
     ('GET', '/api/audit'): _AUDIT_FILTERS,
     ('GET', '/api/audit/export'): _AUDIT_FILTERS,

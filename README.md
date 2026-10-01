@@ -114,6 +114,23 @@ export S3_FORCE_PATH_STYLE=true              # obligatoire pour MinIO
 - **Écriture** : l'objet est mis en tampon (8 Mo max en mémoire) pour le multipart et pour
   calculer l'empreinte SHA-256 du contenu écrit ; `LocalStorage` n'est pas modifié.
 
+## Performance (P6)
+
+```bash
+flask perf explain           # EXPLAIN ANALYZE (PostgreSQL) / QUERY PLAN (SQLite), 10 requêtes
+flask perf explain --json    # sortie diffable
+```
+
+Les dix requêtes suivies (listing, plein texte, facettes, échéances, audit, notifications) doivent
+toutes passer par un index : toute régression se lit dans la sortie de la commande.
+
+**Pagination clé** sur `GET /api/documents` : `?pagination=keyset[&per_page=]` renvoie
+`{items, per_page, has_more, next_cursor}` **sans `COUNT(*)`**, puis `&cursor=<next_cursor>` pour la
+page suivante — le coût d'une page est indépendant de sa position (utile au-delà de 100 k
+documents). Le mode `offset` (défaut) garde son contrat `page/total/pages` ; un curseur émis pour
+un autre tri répond `400 cursor_invalid`, et `sort=size_bytes` (nullable) `400
+cursor_unsupported_sort`.
+
 ## Tests & qualité
 
 ```bash

@@ -4,7 +4,8 @@ import tempfile
 import uuid
 from datetime import datetime, timedelta
 
-from app.documents.repositories import DocumentRepository, parse_date
+from app.documents.repositories import (KEYSET_SORTS, DocumentRepository,
+                                        decode_cursor, encode_cursor, parse_date)
 from app.documents.validation import extension_of, mime_for, validate_upload
 from app.errors import (NotFoundError, PermissionDeniedError, ValidationError)
 from app.models.campus import Campus
@@ -157,15 +158,50 @@ class DocumentService:
             filters['tag_ids'] = [int(t) for t in str(tag_ids).split(',') if t.strip()]
 
         page = _int(params, 'page', 1) or 1
-        per_page = _int(params, 'per_page', 20) or 20
-        pagination = DocumentRepository.search(filters, page,
-                                               min(max(per_page, 1), max_per_page))
+        per_page = min(max(_int(params, 'per_page', 20) or 20, 1), max_per_page)
+
+        cursor = (params.get('cursor') or '').strip() or None
+        mode = params.get('pagination') or ('keyset' if cursor else 'offset')
+        if mode == 'keyset':
+            return DocumentService._keyset(filters, cursor, per_page)
+        if mode != 'offset':
+            raise ValidationError("Mode de pagination inconnu.",
+                                  code='invalid_pagination')
+
+        pagination = DocumentRepository.search(filters, page, per_page)
         return {
             'items': [d.to_dict() for d in pagination.items],
             'page': pagination.page,
             'per_page': pagination.per_page,
             'total': pagination.total,
             'pages': pagination.pages,
+        }
+
+    @staticmethod
+    def _keyset(filters, cursor, per_page):
+        """Page suivante en clé-pagination : aucune ligne déjà vue n'est relue,
+        aucun `COUNT(*)` — la réponse porte `has_more`/`next_cursor`."""
+        sort = filters.get('sort') or 'created_at'
+        if sort not in KEYSET_SORTS:
+            raise ValidationError(
+                "Tri non paginable en clé-pagination (colonne nullable).",
+                code='cursor_unsupported_sort')
+        order = 'asc' if filters.get('order') == 'asc' else 'desc'
+
+        after = None
+        if cursor:
+            try:
+                after = decode_cursor(cursor, sort, order)
+            except ValueError as exc:
+                raise ValidationError(f"Curseur invalide ({exc}).",
+                                      code='cursor_invalid') from exc
+
+        rows, has_more = DocumentRepository.search_after(filters, per_page, after)
+        return {
+            'items': [d.to_dict() for d in rows],
+            'per_page': per_page,
+            'has_more': has_more,
+            'next_cursor': encode_cursor(rows[-1], sort, order) if has_more else None,
         }
 
     @staticmethod
