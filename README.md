@@ -52,9 +52,9 @@ Comptes livrés : `admin` / `Admin@2024` (super admin) et `prof`, `secretaire`,
 ## Rétention (P5)
 
 ```bash
-flask retention:run --dry-run    # simulation (préavis, archivage, purge)
-flask retention:run              # exécution réelle
-flask retention:status           # compteurs + dernier rapport
+flask retention run --dry-run    # simulation (préavis, archivage, purge)
+flask retention run              # exécution réelle
+flask retention status           # compteurs + dernier rapport
 ```
 
 Politique pilotée par les réglages `archives.retention_*` (API
