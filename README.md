@@ -75,6 +75,24 @@ texte à chaque dépôt pour remplir `document.ocr_text` (poids C du vecteur de 
 L'extraction est **best-effort** : moteur absent, fichier illisible ou délai dépassé → `ocr_text`
 reste vide et le dépôt réussit quand même.
 
+## Chiffrement au repos (P6)
+
+Deux variables, toutes deux **facultatives** : sans clé, rien n'est chiffré et les fichiers déjà
+présents restent lisibles.
+
+```bash
+python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"  # générer la clé
+export FILE_ENCRYPTION_KEY='<base64 de 32 octets>'
+export ENCRYPTED_LEVELS='confidential,secret'   # niveaux chiffrés à l'upload
+```
+
+- **Format** : `UNIARCH\x01` puis des blocs AES-GCM de 64 Ko (nonce 12 octets, AAD = index du
+  bloc) — la marque suffit à savoir, à la lecture, si un fichier doit être déchiffré.
+- **Champ protégé** : à l'upload, un document dont le niveau figure dans `ENCRYPTED_LEVELS` est
+  scellé ; `checksum` et `size_bytes` décrivent alors le **clair**, `document.is_encrypted` passe
+  à `true`. Téléchargement, aperçu et OCR déchiffrent à la volée.
+- **Clé mal formée** : le démarrage échoue (`RuntimeError`) plutôt que le premier téléchargement.
+
 ## Tests & qualité
 
 ```bash

@@ -17,6 +17,15 @@ def create_app(config_name='default'):
     # Charger la configuration
     application.config.from_object(config[config_name])
 
+    # Chiffrement au repos (P6) : une clé mal formée doit refuser le démarrage
+    # plutôt que de se révéler au premier téléchargement.
+    if application.config.get('FILE_ENCRYPTION_KEY'):
+        from app.storage.crypto import CryptoError, parse_key
+        try:
+            parse_key(application.config['FILE_ENCRYPTION_KEY'])
+        except CryptoError as exc:
+            raise RuntimeError(f'FILE_ENCRYPTION_KEY invalide : {exc}') from exc
+
     # Sécurité : en production, refuser les secrets par défaut du développement
     if config_name == 'production':
         if application.config['SECRET_KEY'] == 'dev-secret-key-change-in-production':

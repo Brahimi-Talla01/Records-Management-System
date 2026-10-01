@@ -61,6 +61,10 @@ class Config:
     OCR_TIMEOUT_SECONDS = int(os.environ.get('OCR_TIMEOUT_SECONDS', '30'))
     OCR_MAX_PDF_PAGES = int(os.environ.get('OCR_MAX_PDF_PAGES', '200'))
 
+    # Chiffrement au repos (P6) : clé base64 (32 octets) et niveaux chiffrés
+    FILE_ENCRYPTION_KEY = os.environ.get('FILE_ENCRYPTION_KEY', '')
+    ENCRYPTED_LEVELS = os.environ.get('ENCRYPTED_LEVELS', 'confidential,secret')
+
     # Pagination
     ITEMS_PER_PAGE = 20
 

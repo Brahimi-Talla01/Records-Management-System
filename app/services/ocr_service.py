@@ -24,7 +24,7 @@ from flask import current_app
 from pypdf import PdfReader
 
 from app.settings.service import SettingService
-from app.storage import get_storage
+from app.storage import crypto, get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def extract(storage_path: str, mime_type: str | None,
 
     try:
         with get_storage().open(storage_path) as handle:
-            payload = handle.read()
+            payload = crypto.readable(handle).read()
         text = _pdf_text(payload) if channel == 'pdf' else _tesseract(payload)
     except Exception:
         logger.warning('OCR impossible pour %s', storage_path, exc_info=True)

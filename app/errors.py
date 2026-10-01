@@ -229,4 +229,13 @@ def register_error_handlers(application: Flask) -> None:
         )
         return error_response(DEFAULT_MESSAGES[500], 500)
 
+    # Fichier chiffré illisible (clé absente/altérée) : serveur mal configuré.
+    from app.storage.crypto import CryptoError
+
+    @application.errorhandler(CryptoError)
+    def _handle_crypto_error(exc: CryptoError):
+        application.logger.error('Lecture d\'un fichier chiffré impossible : %s', exc)
+        return error_response('Fichier chiffré illisible.', 500,
+                              code='encrypted_file_unreadable')
+
     application.after_request(complete_error_envelope)

@@ -7,7 +7,7 @@ from app.documents.services import DocumentService, safe_download_name
 from app.errors import UnprocessableEntityError
 from app.permissions.decorators import require_permission
 from app.services import audit_service
-from app.storage import get_storage
+from app.storage import crypto, get_storage
 from extensions import limiter
 
 documents_bp = Blueprint('documents', __name__)
@@ -114,7 +114,7 @@ def add_version(document_id):
 def download_version(document_id, version_id):
     actor = get_current_user()
     document, version = DocumentService.version_file(actor, document_id, version_id)
-    stream = get_storage().open(version.storage_url)
+    stream = crypto.readable(get_storage().open(version.storage_url))
     audit_service.log('document_downloaded', 'document',
                       object_id=document.document_id,
                       details={'version': version.version_number},
@@ -141,7 +141,7 @@ def preview_document(document_id):
     if (version.mime_type or '') not in PREVIEWABLE:
         raise UnprocessableEntityError("Aperçu indisponible pour ce type de fichier.",
                                        code='preview_not_supported')
-    stream = get_storage().open(version.storage_url)
+    stream = crypto.readable(get_storage().open(version.storage_url))
     return send_file(stream, mimetype=version.mime_type, as_attachment=False,
                      download_name=safe_download_name(document, version))
 
