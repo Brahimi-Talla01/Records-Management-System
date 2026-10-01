@@ -15,6 +15,7 @@ from app.models.folder import Folder
 from app.models.tag import Tag
 from app.scope import is_super_admin
 from app.services import audit_service
+from app.services.notification_service import NotificationService
 from app.services.permission_service import PermissionService
 from app.settings.service import SettingService
 from app.storage import get_storage
@@ -336,6 +337,7 @@ class DocumentService:
                           object_id=document.document_id,
                           details={'version': version_number},
                           user_id=actor.user_id)
+        NotificationService.notify_document_upload(document, actor)
         return version
 
     @staticmethod

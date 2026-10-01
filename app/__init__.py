@@ -105,13 +105,15 @@ def create_app(config_name='default'):
     application.register_blueprint(permissions_bp)
     application.register_blueprint(referentials_bp)
 
-    # Enregistrer les blueprints documents / dashboard / search
+    # Enregistrer les blueprints documents / dashboard / search / notifications
     from app.documents.routes import documents_bp
     from app.dashboard.routes import dashboard_bp
     from app.search.routes import search_bp
+    from app.notifications.routes import notifications_bp
     application.register_blueprint(documents_bp, url_prefix='/api/documents')
     application.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     application.register_blueprint(search_bp, url_prefix='/api/search')
+    application.register_blueprint(notifications_bp, url_prefix='/api/notifications')
 
     # Commandes CLI (flask seed roles|folders|doctypes|departments|admin|demo|all)
     from app.cli import register_commands

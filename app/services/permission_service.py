@@ -8,6 +8,7 @@ from app.models.role_folder_right import RoleFolderRight
 from app.models.user_document_right import UserDocumentRight
 from app.models.user_folder_right import UserFolderRight
 from app.scope import is_super_admin
+from app.services.notification_service import NotificationService
 from extensions import db
 
 ACTIONS = ('view', 'download', 'edit', 'delete')
@@ -212,10 +213,16 @@ class PermissionService:
     def grant_document_user(user_id, document_id, rights: dict, granted_by) -> Any:
         row = PermissionService._rights_row(
             UserDocumentRight, user_id=user_id, document_id=document_id)
+        is_new = row in db.session.new
         _set_rights(row, rights)
         row.granted_by = granted_by
         db.session.commit()
         purge_permission_cache()
+        if is_new:
+            NotificationService.notify_grant(
+                user_id, granted_by,
+                f"Un accès au document #{document_id} vous a été accordé.",
+                action_url=f"/documents/{document_id}")
         return row
 
     @staticmethod
@@ -232,10 +239,16 @@ class PermissionService:
     def grant_folder_user(user_id, folder_id, rights: dict, granted_by) -> Any:
         row = PermissionService._rights_row(
             UserFolderRight, user_id=user_id, folder_id=folder_id)
+        is_new = row in db.session.new
         _set_rights(row, rights)
         row.granted_by = granted_by
         db.session.commit()
         purge_permission_cache()
+        if is_new:
+            NotificationService.notify_grant(
+                user_id, granted_by,
+                f"Un accès au dossier #{folder_id} vous a été accordé.",
+                action_url=f"/folders/{folder_id}")
         return row
 
     @staticmethod
