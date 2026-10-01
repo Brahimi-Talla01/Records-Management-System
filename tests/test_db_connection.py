@@ -24,9 +24,10 @@ from extensions import db
 EXPECTED_TABLES = {
     'audit_log', 'campus', 'department', 'doc_type', 'document', 'document_tag',
     'document_version', 'folder', 'institution', 'notification',
-    'password_reset_token', 'role', 'role_document_right', 'role_folder_right',
-    'search_history', 'security_alert', 'setting', 'tag', 'two_factor_code',
-    'user_account', 'user_document_right', 'user_folder_right',
+    'password_reset_token', 'retention_report', 'role', 'role_document_right',
+    'role_folder_right', 'search_history', 'security_alert', 'setting', 'tag',
+    'two_factor_code', 'user_account', 'user_document_right',
+    'user_folder_right',
 }
 
 

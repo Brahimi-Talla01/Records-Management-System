@@ -4,8 +4,9 @@ Index de base de données (plan 07 — P0.9, P1 puis P4).
 Deux sources doivent rester alignées :
 
 * les **modèles** (`index=True` / `db.Index`) → `create_all()` des bases fraîches ;
-* les **migrations** (`e5f0a1b2c3d4`, `f1a2b3c4d5e6` puis `b4c5d6e7f8a9`) → bases
-  préexistantes stampées sur la baseline `23042faea7a9` par l'entrypoint.
+* les **migrations** (`e5f0a1b2c3d4`, `f1a2b3c4d5e6`, `b4c5d6e7f8a9` puis
+  `c5d6e7f8a9b0`) → bases préexistantes stampées sur la baseline `23042faea7a9`
+  par l'entrypoint.
 
 Le moindre écart (un index ajouté au modèle sans migration, ou l'inverse) fait
 échouer `test_migration_et_modeles_sont_alignes`.
@@ -26,6 +27,7 @@ MIGRATIONS_DIR = (pathlib.Path(__file__).resolve().parent.parent
 REVISION_P0 = 'e5f0a1b2c3d4'
 REVISION_P1 = 'f1a2b3c4d5e6'
 REVISION_P4 = 'b4c5d6e7f8a9'
+REVISION_P5 = 'c5d6e7f8a9b0'
 BASELINE = '23042faea7a9'
 
 # Contrat des index attendus — P0 (24).
@@ -82,7 +84,13 @@ EXPECTED_P4 = {
     'ix_search_history_user_searched_at',
 }
 
-EXPECTED = EXPECTED_P0 | EXPECTED_P1 | EXPECTED_P4
+# Contrat des index ajoutés en P5 (rétention).
+EXPECTED_P5 = {
+    'ix_document_status_retention_expires_at',
+    'ix_retention_report_ran_at',
+}
+
+EXPECTED = EXPECTED_P0 | EXPECTED_P1 | EXPECTED_P4 | EXPECTED_P5
 
 
 def load_migration(revision, filename):
@@ -106,6 +114,10 @@ def load_p1():
 
 def load_p4():
     return load_migration(REVISION_P4, 'search_dashboard_notifications')
+
+
+def load_p5():
+    return load_migration(REVISION_P5, 'retention_report')
 
 
 def model_index_names():
@@ -132,18 +144,19 @@ def test_les_modeles_declarent_exactement_les_index_attendus():
 
 def test_migration_et_modeles_sont_alignes():
     """Tout index du modèle existe en migration, et réciproquement."""
-    p0, p1, p4 = load_p0(), load_p1(), load_p4()
+    p0, p1, p4, p5 = load_p0(), load_p1(), load_p4(), load_p5()
 
     migration_names = (ddl_index_names(p0.INDEXES)
                        | ddl_index_names(p1.INDEXES)
-                       | ddl_index_names(p4.INDEXES))
+                       | ddl_index_names(p4.INDEXES)
+                       | ddl_index_names(p5.INDEXES))
     assert migration_names == model_index_names()
     assert (len(p0.INDEXES) + len(p1.INDEXES) + len(p4.INDEXES)
-            == len(model_index_names()))  # pas de doublon
+            + len(p5.INDEXES) == len(model_index_names()))  # pas de doublon
 
 
 def test_migrations_reposent_sur_la_baseline_immuable():
-    p0, p1, p4 = load_p0(), load_p1(), load_p4()
+    p0, p1, p4, p5 = load_p0(), load_p1(), load_p4(), load_p5()
 
     assert p0.revision == REVISION_P0
     assert p0.down_revision == BASELINE
@@ -151,6 +164,8 @@ def test_migrations_reposent_sur_la_baseline_immuable():
     assert p1.down_revision == REVISION_P0
     assert p4.revision == REVISION_P4
     assert p4.down_revision == REVISION_P1
+    assert p5.revision == REVISION_P5
+    assert p5.down_revision == REVISION_P4
 
 
 # --------------------------------------------------------------------------- #
@@ -231,7 +246,7 @@ def existing_ix_indexes():
 def test_sql_des_index_s_execute_et_est_idempotent():
     """Le DDL tourne sur SQLite (tests) et Postgres (prod), deux fois de suite."""
     statements = (load_p0().INDEXES + load_p1().INDEXES
-                  + load_p4().INDEXES)
+                  + load_p4().INDEXES + load_p5().INDEXES)
 
     for statement in statements:
         db.session.execute(text(statement))
@@ -245,9 +260,9 @@ def test_sql_des_index_s_execute_et_est_idempotent():
 def test_downgrade_retire_les_index():
     """`downgrade()` : les requêtes DROP doivent être syntaxiquement valides."""
     drops = (load_p0().drop_statements() + load_p1().drop_statements()
-             + load_p4().drop_statements())
+             + load_p4().drop_statements() + load_p5().drop_statements())
     statements = (load_p0().INDEXES + load_p1().INDEXES
-                  + load_p4().INDEXES)
+                  + load_p4().INDEXES + load_p5().INDEXES)
     assert len(drops) == len(statements)
     assert all(s.startswith('DROP INDEX IF EXISTS ') and ' ON ' not in s
                for s in drops), "le DROP doit être `DROP INDEX IF EXISTS <nom>`"

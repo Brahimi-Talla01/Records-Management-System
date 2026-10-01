@@ -8,6 +8,7 @@ from app.errors import UnprocessableEntityError
 from app.permissions.decorators import require_permission
 from app.services import audit_service
 from app.storage import get_storage
+from extensions import limiter
 
 documents_bp = Blueprint('documents', __name__)
 
@@ -56,6 +57,7 @@ def get_document(document_id):
 
 @documents_bp.route('', methods=['POST'])
 @session_required
+@limiter.limit('30 per minute')
 def create_document():
     actor = get_current_user()
     document = DocumentService.create_document(actor, _payload(),
@@ -97,6 +99,7 @@ def list_versions(document_id):
 
 @documents_bp.route('/<int:document_id>/versions', methods=['POST'])
 @require_permission('edit')
+@limiter.limit('30 per minute')
 def add_version(document_id):
     actor = get_current_user()
     version = DocumentService.add_version(actor, document_id,

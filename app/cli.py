@@ -125,6 +125,43 @@ def seed_all_cmd(username, password):
     click.echo("✓ Seed terminé")
 
 
+@click.group('retention')
+@with_appcontext
+def retention_group():
+    """Cycle de vie des documents en fin de conservation (plan 07 — P5)."""
+
+
+@retention_group.command('run')
+@click.option('--dry-run', is_flag=True,
+              help='Simule sans écrire (hors rapport).')
+@click.option('--campus-id', default=None, type=int,
+              help='Limiter le traitement à un campus (défaut : tous).')
+@with_appcontext
+def retention_run_cmd(dry_run, campus_id):
+    """Préavis, archivage et purge selon les réglages `archives.retention_*`."""
+    from app.services.retention_service import RetentionService
+
+    report = RetentionService.run(dry_run=dry_run, campus_id=campus_id)
+    mode = 'SIMULATION' if report.dry_run else 'exécution'
+    click.echo(f"Rétention ({mode}) — préavis : {report.warnings_sent}, "
+               f"archivés : {report.archived}, purgés : {report.purged}")
+    if report.details:
+        click.echo(f"  détails : {report.details}")
+
+
+@retention_group.command('status')
+@with_appcontext
+def retention_status_cmd():
+    """Compteurs de rétention et dernier rapport (aucun effet de bord)."""
+    import json
+
+    from app.services.retention_service import RetentionService
+
+    click.echo(json.dumps(RetentionService.status(), indent=2,
+                          ensure_ascii=False, default=str))
+
+
 def register_commands(application):
     """Attache les commandes CLI à l'application (appelé par create_app)."""
     application.cli.add_command(seed_group)
+    application.cli.add_command(retention_group)

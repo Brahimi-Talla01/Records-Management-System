@@ -45,6 +45,9 @@ from app.models.security_alert import SecurityAlert
 # 9. Réglages (dépendent de Campus et UserAccount)
 from app.models.setting import Setting
 
+# 10. Rétention (dépend de UserAccount)
+from app.models.retention_report import RetentionReport
+
 __all__ = [
     'Institution',
     'Campus',
@@ -68,4 +71,5 @@ __all__ = [
     'TwoFactorCode',
     'SecurityAlert',
     'Setting',
+    'RetentionReport',
 ]

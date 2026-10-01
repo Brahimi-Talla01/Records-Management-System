@@ -19,15 +19,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, or_
+from sqlalchemy import func
 
 from app.errors import PermissionDeniedError
 from app.models.audit import AuditLog
 from app.models.department import Department
 from app.models.document import Document
-from app.models.user import UserAccount
 from app.scope import is_super_admin
 from app.serializers import parse_pagination
+from app.services import audit_service
 from app.services.notification_service import NotificationService
 
 
@@ -141,24 +141,7 @@ class DashboardService:
     def activity(actor, params) -> dict:
         days = _bounded(_int(params, 'days', 30), 30, 365)
         since = datetime.utcnow() - timedelta(days=days)
-        query = (AuditLog.query
-                 .filter(AuditLog.created_at >= since)
-                 .order_by(AuditLog.created_at.desc(),
-                           AuditLog.audit_id.desc()))
-
-        if DashboardService._role(actor) == 'user':
-            query = query.filter(AuditLog.user_id == actor.user_id)
-        else:
-            campus_id = DashboardService._campus_scope(actor, params)
-            if campus_id is not None:
-                query = (query
-                         .outerjoin(UserAccount,
-                                    AuditLog.user_id == UserAccount.user_id)
-                         .outerjoin(Document,
-                                    AuditLog.document_id == Document.document_id)
-                         .filter(or_(
-                             UserAccount.campus_id == campus_id,
-                             Document.campus_id == campus_id)))
+        query = audit_service.list_entries(actor, params, since=since)
 
         page, per_page = parse_pagination(params)
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)

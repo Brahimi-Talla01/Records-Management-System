@@ -18,6 +18,8 @@ class Document(db.Model):
     __table_args__ = (
         db.Index('ix_document_status_created_at', 'status', 'created_at'),
         db.Index('ix_document_campus_status_created_at', 'campus_id', 'status', 'created_at'),
+        db.Index('ix_document_status_retention_expires_at', 'status',
+                 'retention_expires_at'),
     )
     
     document_id = db.Column(db.Integer, primary_key=True)

@@ -23,8 +23,13 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask, current_app, g, has_request_context, request
+from sqlalchemy import or_
 
+from app.errors import PermissionDeniedError
 from app.models.audit import AuditLog
+from app.models.document import Document
+from app.models.user import UserAccount
+from app.scope import is_super_admin
 from extensions import db
 
 MUTATING_METHODS = frozenset({'POST', 'PUT', 'PATCH', 'DELETE'})
@@ -77,6 +82,105 @@ def log(action: str, object_type: str = 'api', *,
     if has_request_context():
         g.audit_logged = True
     return entry
+
+
+# ---------------------------------------------------------------------------
+# Lecture (P5) — journal intégral, filtrable, borné au périmètre campus
+# ---------------------------------------------------------------------------
+
+def _int(params, key, default=None):
+    value = params.get(key)
+    if value in (None, ''):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _apply_filters(query, params):
+    from app.documents.repositories import parse_date
+
+    action = params.get('action')
+    if action:
+        query = query.filter(AuditLog.action == action)
+    object_type = params.get('object_type')
+    if object_type:
+        query = query.filter(AuditLog.object_type == object_type)
+    user_id = _int(params, 'user_id')
+    if user_id is not None:
+        query = query.filter(AuditLog.user_id == user_id)
+    date_from = parse_date(params.get('from') or params.get('date_from'))
+    date_to = parse_date(params.get('to') or params.get('date_to'))
+    if date_from:
+        query = query.filter(AuditLog.created_at >= date_from)
+    if date_to:
+        query = query.filter(AuditLog.created_at <= date_to)
+    return query
+
+
+def list_entries(actor, params, since=None):
+    """
+    Journal filtré et paginé, borné au périmètre (D6) :
+
+    * super admin : tout le journal (`campus_id` optionnel) ;
+    * admin de campus : actions de son campus (utilisateur ou document) ;
+    * autre utilisateur : ses propres actions uniquement.
+
+    Un admin de campus qui demande un autre campus reçoit un 403.
+    """
+    query = _apply_filters(AuditLog.query, params)
+    if since is not None:
+        query = query.filter(AuditLog.created_at >= since)
+
+    if is_super_admin(actor):
+        campus_id = _int(params, 'campus_id')
+    elif actor.role is not None and actor.role.name == 'Admin':
+        if actor.campus_id is None:
+            raise PermissionDeniedError("Aucun campus associé à ce compte.",
+                                        code='no_campus_scope')
+        requested = _int(params, 'campus_id')
+        if requested is not None and requested != actor.campus_id:
+            raise PermissionDeniedError("Accès inter-campus interdit.",
+                                        code='cross_campus_access')
+        campus_id = actor.campus_id
+    else:
+        return query.filter(AuditLog.user_id == actor.user_id)
+
+    if campus_id is not None:
+        query = (query
+                 .outerjoin(UserAccount,
+                            AuditLog.user_id == UserAccount.user_id)
+                 .outerjoin(Document,
+                            AuditLog.document_id == Document.document_id)
+                 .filter(or_(UserAccount.campus_id == campus_id,
+                             Document.campus_id == campus_id)))
+    return query
+
+
+def to_csv(actor, params) -> str:
+    """Export CSV du journal filtré (même périmètre, plafonné à 10 000 lignes)."""
+    import csv
+    import io
+
+    params = dict(params)
+    params['per_page'] = 10000
+    query = list_entries(actor, params)
+    rows = query.limit(10000).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', 'Action', 'Type objet', 'ID objet', 'Utilisateur',
+                     'Document', 'Détails', 'Horodatage'])
+    for entry in rows:
+        writer.writerow([
+            entry.audit_id, entry.action, entry.object_type, entry.object_id,
+            entry.user.username if entry.user else None,
+            entry.document_id,
+            str(entry.details or {}),
+            entry.created_at.isoformat() if entry.created_at else None,
+        ])
+    return output.getvalue()
 
 
 # ---------------------------------------------------------------------------
