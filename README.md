@@ -62,6 +62,19 @@ Politique pilotée par les réglages `archives.retention_*` (API
 (`retention_auto_archive`), purge (`retention_purge_after_days`).
 Déclenchement manuel : `POST /api/admin/retention/run` (super admin).
 
+## OCR (P6)
+
+Réglage `features.ocr_enabled` (`PUT /api/settings`), **éteint par défaut**. Activé, il extrait le
+texte à chaque dépôt pour remplir `document.ocr_text` (poids C du vecteur de recherche) :
+
+- **PDF** : couche texte native (`pypdf`, jusqu'à `OCR_MAX_PDF_PAGES` pages) ;
+- **images** (png/jpeg/tiff) : Tesseract (`OCR_LANGUAGES`, défaut `fra+eng`), binaire installé
+  dans l'image Docker (`tesseract-ocr` + `tesseract-ocr-fra`) ; délai borne par
+  `OCR_TIMEOUT_SECONDS` (30 s).
+
+L'extraction est **best-effort** : moteur absent, fichier illisible ou délai dépassé → `ocr_text`
+reste vide et le dépôt réussit quand même.
+
 ## Tests & qualité
 
 ```bash
