@@ -161,7 +161,38 @@ def retention_status_cmd():
                           ensure_ascii=False, default=str))
 
 
+@click.group('perf')
+@with_appcontext
+def perf_group():
+    """Performance (§7.5.4 — P6) : plan d'exécution des requêtes lourdes."""
+
+
+@perf_group.command('explain')
+@click.option('--json', 'as_json', is_flag=True,
+              help='Sortie JSON (diffable ou lisible par la CI).')
+@with_appcontext
+def perf_explain_cmd(as_json):
+    """EXPLAIN ANALYZE (PostgreSQL) / EXPLAIN QUERY PLAN (SQLite), 10 requêtes."""
+    import json as json_lib
+
+    from app.services.perf_service import explain
+
+    report = explain()
+    if as_json:
+        click.echo(json_lib.dumps(report, indent=2, ensure_ascii=False))
+        return
+    for entry in report:
+        click.echo(f"▸ {entry['query']}")
+        if entry.get('error'):
+            click.echo(f"  ! erreur : {entry['error']}")
+        for line in entry['plan']:
+            click.echo(f"  {line}")
+    failures = sum(1 for entry in report if entry.get('error'))
+    click.echo(f"{len(report)} requêtes, {failures} erreur(s)")
+
+
 def register_commands(application):
     """Attache les commandes CLI à l'application (appelé par create_app)."""
     application.cli.add_command(seed_group)
     application.cli.add_command(retention_group)
+    application.cli.add_command(perf_group)

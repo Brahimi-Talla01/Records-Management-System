@@ -1,7 +1,10 @@
+import base64
+import binascii
+import json
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import joinedload
 
 from app.models.document import Document
@@ -15,6 +18,11 @@ SORTABLE = {
     'size_bytes': Document.size_bytes,
 }
 
+# Colonnes NOT NULL : seules elles acceptent une comparaison stricte de clé
+# (`size_bytes` est nullable → NULL ne se compare pas de façon portable).
+KEYSET_SORTS = frozenset({'created_at', 'updated_at', 'title'})
+_TEMPORAL_SORTS = frozenset({'created_at', 'updated_at'})
+
 
 class DocumentRepository:
 
@@ -27,8 +35,7 @@ class DocumentRepository:
         )
 
     @staticmethod
-    def search(filters, page=1, per_page=20):
-        filters = filters or {}
+    def _filtered(filters):
         query = DocumentRepository.base_query()
 
         if filters.get('campus_id') is not None:
@@ -55,6 +62,12 @@ class DocumentRepository:
             query = query.join(document_tag,
                                Document.document_id == document_tag.c.document_id).filter(
                 document_tag.c.tag_id.in_(filters['tag_ids']))
+        return query
+
+    @staticmethod
+    def search(filters, page=1, per_page=20):
+        filters = filters or {}
+        query = DocumentRepository._filtered(filters)
 
         sort = filters.get('sort') or 'created_at'
         column = SORTABLE.get(sort, Document.created_at)
@@ -64,6 +77,39 @@ class DocumentRepository:
             query = query.order_by(column.desc())
 
         return query.paginate(page=page, per_page=per_page, error_out=False)
+
+    @staticmethod
+    def search_after(filters, per_page, after=None):
+        """Pagination clé (§7.5.4) : `WHERE (colonne, id) < dernier` + `LIMIT n+1`.
+
+        Ni `COUNT(*)` (pour `total`) ni décalage à parcourir : le coût d'une page
+        est indépendant de sa position dans la liste.
+        """
+        filters = filters or {}
+        query = DocumentRepository._filtered(filters)
+        sort = filters.get('sort') or 'created_at'
+        column = SORTABLE[sort]
+        descending = filters.get('order') != 'asc'
+
+        if after is not None:
+            value, last_id = after
+            if descending:
+                position = or_(column < value,
+                               and_(column == value,
+                                    Document.document_id < last_id))
+            else:
+                position = or_(column > value,
+                               and_(column == value,
+                                    Document.document_id > last_id))
+            query = query.filter(position)
+
+        if descending:
+            query = query.order_by(column.desc(), Document.document_id.desc())
+        else:
+            query = query.order_by(column.asc(), Document.document_id.asc())
+
+        rows = query.limit(per_page + 1).all()
+        return rows[:per_page], len(rows) > per_page
 
     @staticmethod
     def get(document_id):
@@ -97,3 +143,38 @@ def parse_date(value):
         return datetime.fromisoformat(value)
     except (TypeError, ValueError):
         return None
+
+
+def encode_cursor(row, sort: str, order: str) -> str:
+    """Jeton opaque portant la dernière ligne vue + le tri qui l'a produite."""
+    value = getattr(row, SORTABLE[sort].key)
+    payload = {
+        'sort': sort,
+        'order': order,
+        'value': value.isoformat() if isinstance(value, datetime) else value,
+        'id': row.document_id,
+    }
+    raw = json.dumps(payload, ensure_ascii=False,
+                     separators=(',', ':')).encode('utf-8')
+    return base64.urlsafe_b64encode(raw).decode('ascii').rstrip('=')
+
+
+def decode_cursor(raw: str, sort: str, order: str):
+    """`(valeur, document_id)` ; `ValueError` si le jeton est illisible ou s'il
+    provient d'un autre tri (page suivante après changement de tri/filtre)."""
+    try:
+        padded = raw + '=' * (-len(raw) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode('ascii')))
+        value, last_id = payload['value'], int(payload['id'])
+    except (ValueError, binascii.Error, KeyError, TypeError) as exc:
+        raise ValueError('jeton illisible') from exc
+
+    if payload.get('sort') != sort or payload.get('order') != order:
+        raise ValueError('jeton émis pour un autre tri')
+
+    if sort in _TEMPORAL_SORTS:
+        try:
+            value = datetime.fromisoformat(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError('jeton illisible') from exc
+    return value, last_id
