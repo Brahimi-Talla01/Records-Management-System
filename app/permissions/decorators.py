@@ -1,6 +1,6 @@
 from functools import wraps
 
-from app.auth.session_auth import get_current_user, session_required
+from app.auth.session_auth import get_current_user, mark_guard, session_required
 from app.documents.repositories import DocumentRepository
 from app.errors import NotFoundError, PermissionDeniedError
 from app.services import audit_service
@@ -32,5 +32,5 @@ def require_permission(action, subject='document'):
                         details={'action': action, 'rule': result['rule']},
                     )
             return fn(*args, **kwargs)
-        return wrapper
+        return mark_guard(wrapper, 'permission')
     return decorator

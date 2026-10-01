@@ -48,7 +48,7 @@ def create_app(config_name='default'):
 
     # Headers de sécurité (Talisman) — redirection HTTPS seulement si FORCE_HTTPS
     from flask_talisman import Talisman
-    Talisman(
+    talisman = Talisman(
         application,
         force_https=application.config.get('FORCE_HTTPS', False),
         strict_transport_security=application.config.get('FORCE_HTTPS', False),
@@ -124,6 +124,10 @@ def create_app(config_name='default'):
     from app.retention.routes import retention_bp
     application.register_blueprint(audit_bp, url_prefix='/api/audit')
     application.register_blueprint(retention_bp, url_prefix='/api/admin/retention')
+
+    # Documentation OpenAPI (P6) : spécification générée depuis la carte des routes
+    from app.openapi import register_openapi
+    register_openapi(application, talisman)
 
     # Commandes CLI (flask seed roles|folders|doctypes|departments|admin|demo|all)
     from app.cli import register_commands
