@@ -53,6 +53,17 @@ class Config:
     # un volume nommé « uploads_data » → les fichiers survivent aux rebuilds)
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or os.path.join(os.path.dirname(__file__), 'uploads')
     STORAGE_BACKEND = os.environ.get('STORAGE_BACKEND', 'local')
+
+    # Stockage objet (P6) : S3/MinIO, à activer par STORAGE_BACKEND=s3
+    S3_ENDPOINT_URL = os.environ.get('S3_ENDPOINT_URL', '')
+    S3_REGION = os.environ.get('S3_REGION', '')
+    S3_BUCKET = os.environ.get('S3_BUCKET', '')
+    S3_ACCESS_KEY = os.environ.get('S3_ACCESS_KEY', '')
+    S3_SECRET_KEY = os.environ.get('S3_SECRET_KEY', '')
+    S3_PREFIX = os.environ.get('S3_PREFIX', '')
+    # MinIO : addressing « path » obligatoire (buckets non résolubles en DNS)
+    S3_FORCE_PATH_STYLE = os.environ.get(
+        'S3_FORCE_PATH_STYLE', 'false').lower() == 'true'
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024
     ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xlsx', 'jpg', 'jpeg', 'png', 'tiff'}
 

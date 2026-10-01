@@ -26,6 +26,11 @@ def create_app(config_name='default'):
         except CryptoError as exc:
             raise RuntimeError(f'FILE_ENCRYPTION_KEY invalide : {exc}') from exc
 
+    # Stockage objet (P6) : pas de bucket, pas de démarrage.
+    if application.config.get('STORAGE_BACKEND') == 's3' and \
+            not application.config.get('S3_BUCKET'):
+        raise RuntimeError("S3_BUCKET doit être défini quand STORAGE_BACKEND=s3.")
+
     # Sécurité : en production, refuser les secrets par défaut du développement
     if config_name == 'production':
         if application.config['SECRET_KEY'] == 'dev-secret-key-change-in-production':
