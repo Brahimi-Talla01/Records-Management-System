@@ -20,6 +20,11 @@ import os
 os.environ['FLASK_ENV'] = 'testing'
 os.environ.pop('REDIS_URL', None)             # sessions : store mémoire
 os.environ.pop('RATELIMIT_STORAGE_URI', None)  # rate limiting : pas de Redis
+# `config.py` appelle `load_dotenv()` : le .env local (ignoré par git, propre à
+# chaque poste) redéfinirait le chiffrement et fausserait les attentes. Les tests
+# valident le défaut produit ; ceux qui ont besoin d'une clé la posent eux-mêmes.
+os.environ.pop('FILE_ENCRYPTION_KEY', None)
+os.environ['ENCRYPTED_LEVELS'] = 'confidential,secret'
 
 import pytest  # noqa: E402
 from sqlalchemy import event  # noqa: E402
