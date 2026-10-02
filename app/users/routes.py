@@ -31,8 +31,9 @@ def _parse_filters():
 
 @users_bp.route('', methods=['GET'])
 @session_required
+@admin_required
 def get_users():
-    """Liste tous les utilisateurs avec pagination et filtres"""
+    """Liste les utilisateurs du périmètre de l'administrateur"""
     try:
         # Paramètres de pagination
         page = request.args.get('page', 1, type=int)
@@ -47,6 +48,7 @@ def get_users():
 
 @users_bp.route('/<int:user_id>', methods=['GET'])
 @session_required
+@admin_required
 def get_user(user_id):
     """Récupère un utilisateur par son ID"""
     try:
