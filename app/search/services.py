@@ -33,6 +33,9 @@ from extensions import db
 TRIGRAM_THRESHOLD = 0.3
 HIGHLIGHT_OPTIONS = ('StartSel=<mark>, StopSel=</mark>, '
                      'MaxFragments=2, MaxWords=35, MinWords=15')
+# Identique à ocr_service.MAX_TEXT : borne la part de texte OCR analysée par
+# `ts_headline` pour chaque ligne de la page (au pire 500 k × per_page).
+OCR_HEADLINE_LIMIT = 500_000
 
 # Dictionnaire de recherche : littéral `String` explicite, car le `REGCONFIG`
 # que SQLAlchemy en déduit n'a pas de processeur littéral et ferait échouer
@@ -134,9 +137,21 @@ class SearchService:
 
     @staticmethod
     def _headline(tsquery):
+        """Extrait surligné sur les trois sources du vecteur : titre, description, OCR.
+
+        `coalesce(description, title)` masquait toute correspondance sur le titre
+        dès qu'une description existait, et l'OCR n'était jamais surligné.
+        L'OCR est borné au seuil d'extraction pour que `ts_headline` reste
+        proportionnel au texte utile et non au document complet.
+        """
         return func.ts_headline(
             SEARCH_CONFIG,
-            func.coalesce(Document.description, Document.title),
+            func.concat_ws(
+                ' ',
+                Document.title,
+                Document.description,
+                func.left(Document.ocr_text, OCR_HEADLINE_LIMIT),
+            ),
             tsquery,
             HIGHLIGHT_OPTIONS,
         )

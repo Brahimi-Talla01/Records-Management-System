@@ -15,6 +15,9 @@ from app.models.document import Document
 from app.models.role import Role
 from app.models.tag import Tag
 from app.models.user import UserAccount
+from app.search.services import SearchService
+from sqlalchemy import literal
+from sqlalchemy.dialects import postgresql
 from extensions import db
 
 PDF = b'%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n%%EOF\n'
@@ -332,3 +335,18 @@ def test_recherche_par_un_compte_sans_campus_refusee(app, do_login):
 
     assert resp.status_code == 403
     assert resp.get_json()['code'] == 'no_campus_scope'
+
+
+def test_extrait_surligne_couvre_titre_description_et_ocr():
+    """Le `ts_headline` PostgreSQL doit porter sur titre + description + OCR.
+
+    Défaut constaté par le test de bout en bout : avec
+    `coalesce(description, title)`, une correspondance sur le titre ne produit
+    aucun `<mark>` dès qu'une description existe, et le texte OCR extrait n'est
+    jamais surligné.
+    """
+    expression = SearchService._headline(literal('soutenance'))
+    sql = str(expression.compile(dialect=postgresql.dialect()))
+
+    for colonne in ('document.title', 'document.description', 'document.ocr_text'):
+        assert colonne in sql, sql
