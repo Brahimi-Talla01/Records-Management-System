@@ -1,11 +1,39 @@
 from sqlalchemy import or_
+from app.errors import PermissionDeniedError
 from app.services import audit_service
 from extensions import db
+from app.models.campus import Campus
 from app.models.user import UserAccount
 from app.models.role import Role
 from app.models.department import Department
+from app.scope import is_super_admin, require_campus_access
 import csv
 import io
+
+
+def _explicit_campus(raw, actor):
+    """Campus fourni : doit exister et relever du périmètre de l'auteur."""
+    try:
+        campus_id = int(raw)
+    except (TypeError, ValueError):
+        return None, "Campus invalide"
+    if Campus.query.get(campus_id) is None:
+        return None, "Campus invalide"
+    if actor is not None:
+        require_campus_access(actor, campus_id)
+    return campus_id, None
+
+
+def _campus_for_creation(data, creator, role):
+    """Rattachement à la création (Q2) : explicite, sinon hérité, sinon Admin."""
+    if data.get('campus_id') not in (None, ''):
+        return _explicit_campus(data['campus_id'], creator)
+    if creator is not None and creator.campus_id is not None:
+        return creator.campus_id, None
+    if role.name == 'Admin':
+        return None, None
+    return None, "Champs requis manquants: campus_id"
+
 
 class UserService:
     
@@ -96,6 +124,13 @@ class UserService:
         role = Role.query.get(data['role_id'])
         if not role:
             return None, "Rôle invalide"
+
+        # Rattachement campus (Q2) : campus_id explicite, sinon hérité du
+        # créateur ; sans campus, seul un rôle Admin peut rester global.
+        campus_id, error = _campus_for_creation(
+            data, UserAccount.query.get(created_by_id), role)
+        if error:
+            return None, error
         
         # Vérifier que le département existe (si fourni)
         if data.get('department_id'):
@@ -112,6 +147,7 @@ class UserService:
                 full_name=data.get('full_name'),
                 role_id=data['role_id'],
                 department_id=data.get('department_id'),
+                campus_id=campus_id,
                 is_active=data.get('is_active', True)
             )
             
@@ -142,6 +178,32 @@ class UserService:
         user = UserAccount.query.get(user_id)
         if not user:
             return None, "Utilisateur non trouvé"
+
+        # Rôle effectif après mise à jour : la règle Q2 conditionne le campus
+        role = user.role
+        if data.get('role_id'):
+            role = Role.query.get(data['role_id'])
+            if not role:
+                return None, "Rôle invalide"
+
+        if 'campus_id' in data:
+            actor = UserAccount.query.get(updated_by_id)
+            if data['campus_id'] in (None, ''):
+                if role.name != 'Admin':
+                    return None, "Campus obligatoire pour ce rôle"
+                if not is_super_admin(actor):
+                    raise PermissionDeniedError(
+                        "Détachement du campus réservé au super admin.",
+                        code='cross_campus_access')
+                user.campus_id = None
+            else:
+                campus_id, error = _explicit_campus(data['campus_id'], actor)
+                if error:
+                    return None, error
+                user.campus_id = campus_id
+        elif data.get('role_id') and role.name != 'Admin' \
+                and user.campus_id is None:
+            return None, "Campus obligatoire pour ce rôle"
         
         try:
             # Vérifier l'unicité de l'email (si changé)
@@ -161,9 +223,6 @@ class UserService:
                 user.full_name = data['full_name']
             
             if 'role_id' in data:
-                role = Role.query.get(data['role_id'])
-                if not role:
-                    return None, "Rôle invalide"
                 user.role_id = data['role_id']
             
             if 'department_id' in data:
