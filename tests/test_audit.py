@@ -6,6 +6,7 @@ Vérifie les deux mécanismes : trace explicite des services + filet de sécurit
 """
 
 from app.models.audit import AuditLog
+from app.models.campus import Campus
 from app.models.role import Role
 from app.models.security_alert import SecurityAlert
 from app.models.user import UserAccount
@@ -102,6 +103,7 @@ def test_creation_utilisateur_attribue_ladmin(admin):
         'email': 'prof.test@uniarchive.edu',
         'full_name': 'Prof Test',
         'role_id': role_id,
+        'campus_id': Campus.query.filter_by(code='PRINCIPAL').one().campus_id,
         'password': 'ProfTest@2026',
     })
 

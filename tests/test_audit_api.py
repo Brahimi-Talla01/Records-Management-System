@@ -72,6 +72,7 @@ def _prof_payload(i=0):
         'email': f'prof.audit.{i}@uniarchive.edu',
         'full_name': 'Prof Audit',
         'role_id': Role.query.filter_by(name='Prof').one().role_id,
+        'campus_id': Campus.query.filter_by(code='PRINCIPAL').one().campus_id,
         'password': 'ProfTest@2026',
     }
 

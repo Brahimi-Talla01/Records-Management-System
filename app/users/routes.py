@@ -3,6 +3,7 @@ from werkzeug.exceptions import HTTPException
 from app.users.services import UserService
 from app.auth.session_auth import session_required, get_current_user
 from app.auth.decorators import admin_required
+from app.errors import AppError
 from app.models.role import Role
 from app.models.department import Department
 import io
@@ -39,8 +40,8 @@ def get_users():
 
         result = UserService.get_all_users(page, per_page, _parse_filters())
         return jsonify(result), 200
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -53,8 +54,8 @@ def get_user(user_id):
         if error:
             return jsonify({'error': error}), 404
         return jsonify(user), 200
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -72,8 +73,8 @@ def create_user():
             return jsonify({'error': error}), 400
         
         return jsonify(user), 201
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -91,8 +92,8 @@ def update_user(user_id):
             return jsonify({'error': error}), 400
         
         return jsonify(user), 200
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -109,8 +110,8 @@ def delete_user(user_id):
             return jsonify({'error': message}), 400
         
         return jsonify({'message': message}), 200
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -130,8 +131,8 @@ def reset_user_password(user_id):
             return jsonify({'error': message}), 400
         
         return jsonify({'message': message, 'temporary_password': new_password}), 200
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -159,8 +160,8 @@ def import_users():
             return jsonify({'error': error}), 400
         
         return jsonify(results), 200
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -184,8 +185,8 @@ def export_users():
             as_attachment=True,
             download_name='users_export.csv'
         )
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -197,8 +198,8 @@ def get_statistics():
     try:
         stats = UserService.get_user_statistics()
         return jsonify(stats), 200
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -209,8 +210,8 @@ def get_roles():
     try:
         roles = Role.query.all()
         return jsonify([role.to_dict() for role in roles]), 200
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -221,7 +222,7 @@ def get_departments():
     try:
         departments = Department.query.all()
         return jsonify([dept.to_dict() for dept in departments]), 200
-    except HTTPException:
-        raise  # 400/404/413/415/422 : servis tels quels
+    except (HTTPException, AppError):
+        raise  # 400/403/404/413/415/422 : servis tels quels
     except Exception as e:
         return jsonify({'error': str(e)}), 500
