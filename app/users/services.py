@@ -1,4 +1,5 @@
 from sqlalchemy import or_
+from flask import g
 from app.errors import PermissionDeniedError
 from app.services import audit_service
 from extensions import db
@@ -6,7 +7,8 @@ from app.models.campus import Campus
 from app.models.user import UserAccount
 from app.models.role import Role
 from app.models.department import Department
-from app.scope import is_super_admin, require_campus_access
+from app.scope import (apply_campus_scope, is_super_admin,
+                       require_campus_access)
 import csv
 import io
 
@@ -48,7 +50,7 @@ class UserService:
             'is_active': bool
         }
         """
-        query = UserAccount.query
+        query = apply_campus_scope(UserAccount.query, UserAccount)
         
         # Appliquer les filtres
         if filters:
@@ -93,10 +95,15 @@ class UserService:
     
     @staticmethod
     def get_user_by_id(user_id):
-        """Récupère un utilisateur par son ID"""
+        """Récupère un utilisateur par son ID, dans le périmètre de l'auteur"""
         user = UserAccount.query.get(user_id)
         if not user:
             return None, "Utilisateur non trouvé"
+        actor = g.current_user
+        if user.campus_id is None and not is_super_admin(actor):
+            raise PermissionDeniedError("Accès inter-campus interdit.",
+                                        code='cross_campus_access')
+        require_campus_access(actor, user.campus_id)
         return user.to_dict(include_sensitive=True), None
     
     @staticmethod
@@ -375,7 +382,7 @@ class UserService:
     @staticmethod
     def export_users_to_csv(filters=None):
         """Exporte les utilisateurs en CSV"""
-        query = UserAccount.query
+        query = apply_campus_scope(UserAccount.query, UserAccount)
         
         # Appliquer les filtres
         if filters:

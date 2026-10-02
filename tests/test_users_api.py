@@ -179,3 +179,94 @@ def test_passage_en_role_non_admin_exige_un_campus(admin):
     account = UserAccount.query.get(user_id)
     assert account is not None
     assert account.role_id != prof_id
+
+
+# ---------------------------------------------------------------------------
+# Liste, détail et export : lecture réservée aux admins, dans leur périmètre
+# ---------------------------------------------------------------------------
+
+def _prof(username, campus_id):
+    role = Role.query.filter_by(name='Prof').one()
+    user = UserAccount(
+        matricule=username.upper()[:16], username=username,
+        email=f'{username}@uniarchive.edu', full_name='Prof Test',
+        role_id=role.role_id, campus_id=campus_id, is_active=True)
+    user.set_password('ProfMdp@2026')
+    db.session.add(user)
+    db.session.commit()
+    return user.user_id
+
+
+def _usernames(body):
+    return [entry['username'] for entry in body['users']]
+
+
+def test_liste_des_comptes_exige_admin(client, student, admin):
+    assert client.get('/api/users').status_code == 401
+    assert student.get('/api/users').status_code == 403
+    assert admin.get('/api/users').status_code == 200
+
+
+def test_detail_d_un_compte_exige_admin(client, student, admin):
+    user_id = student.user()['user_id']
+
+    assert client.get(f'/api/users/{user_id}').status_code == 401
+    assert student.get(f'/api/users/{user_id}').status_code == 403
+    assert admin.get(f'/api/users/{user_id}').status_code == 200
+
+
+def test_liste_limitee_au_campus_de_l_admin(campus_admin, principal_id,
+                                            second_campus_id):
+    _prof('prof.principal', principal_id)
+    _prof('prof.autre', second_campus_id)
+
+    resp = campus_admin.get('/api/users')
+
+    assert resp.status_code == 200, resp.get_json()
+    usernames = _usernames(resp.get_json())
+    assert 'prof.principal' in usernames
+    assert 'prof.autre' not in usernames
+
+
+def test_super_admin_liste_tous_les_campuses(admin, principal_id,
+                                             second_campus_id):
+    _prof('prof.principal', principal_id)
+    _prof('prof.autre', second_campus_id)
+
+    resp = admin.get('/api/users')
+
+    assert resp.status_code == 200, resp.get_json()
+    usernames = _usernames(resp.get_json())
+    assert 'prof.principal' in usernames
+    assert 'prof.autre' in usernames
+
+
+def test_detail_intercampus_refuse(campus_admin, second_campus_id):
+    user_id = _prof('prof.autre', second_campus_id)
+
+    resp = campus_admin.get(f'/api/users/{user_id}')
+
+    assert resp.status_code == 403, resp.get_json()
+    assert resp.get_json()['code'] == 'cross_campus_access'
+
+
+def test_detail_d_un_compte_global_refuse_au_campus(campus_admin):
+    global_id = UserAccount.query.filter_by(username='admin').one().user_id
+
+    resp = campus_admin.get(f'/api/users/{global_id}')
+
+    assert resp.status_code == 403, resp.get_json()
+    assert resp.get_json()['code'] == 'cross_campus_access'
+
+
+def test_export_respecte_le_campus(campus_admin, principal_id,
+                                   second_campus_id):
+    _prof('prof.principal', principal_id)
+    _prof('prof.autre', second_campus_id)
+
+    resp = campus_admin.get('/api/users/export')
+
+    assert resp.status_code == 200, resp.get_json()
+    body = resp.get_data(as_text=True)
+    assert 'prof.principal' in body
+    assert 'prof.autre' not in body
