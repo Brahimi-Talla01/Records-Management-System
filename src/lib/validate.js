@@ -335,6 +335,53 @@ export const versionSchema = z.looseObject({
   build_date: z.string().nullable().optional(),
 });
 
+/** `GET /search` : un document + extrait surligné (`<mark>`, F5.3). */
+export const searchResultSchema = documentSchema.extend({
+  snippet: z.string().nullable().optional(),
+});
+
+const facetItemSchema = z.looseObject({
+  id: z.number().nullable().optional(),
+  label: z.string().nullable().optional(),
+  count: z.number(),
+});
+
+const valueFacetSchema = z.looseObject({
+  value: z.string(),
+  count: z.number(),
+});
+
+/** Facettes renvoyées par l'API → filtres cliquables (F5.2). */
+export const searchFacetsSchema = z.looseObject({
+  doc_types: z.array(facetItemSchema).optional(),
+  departments: z.array(facetItemSchema).optional(),
+  statuses: z.array(valueFacetSchema).optional(),
+  confidentialities: z.array(valueFacetSchema).optional(),
+});
+
+/** `GET /search` : liste paginée + moteur, facettes et durée (F5.1). */
+export const searchResultsSchema = paginationSchema.extend({
+  items: z.array(searchResultSchema),
+  q: z.string().optional(),
+  engine: z.string().optional(),
+  facets: searchFacetsSchema.optional(),
+  took_ms: z.number().optional(),
+});
+
+/** Entrée d'historique de recherche (`search_history.to_dict()` — P4). */
+export const searchHistoryEntrySchema = z.looseObject({
+  search_id: z.number(),
+  query: z.string().nullable().optional(),
+  filters: z.unknown().optional(),
+  results_count: z.number().nullable().optional(),
+  searched_at: z.string().nullable().optional(),
+});
+
+/** `GET /search/history` : liste paginée des recherches passées. */
+export const searchHistorySchema = paginationSchema.extend({
+  items: z.array(searchHistoryEntrySchema),
+});
+
 /**
  * `GET /settings/public` (F4) : réglages exposés sans authentification.
  * Sert au dépôt : taille max, extensions autorisées, OCR et scanner.

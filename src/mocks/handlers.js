@@ -148,6 +148,46 @@ export const demoDocTypes = [
 
 export const demoTags = [{ tag_id: 1, name: 'IA' }, { tag_id: 2, name: 'recherche' }];
 
+/** Résultat de recherche (F5) : document + extrait surligné `<mark>`. */
+export const demoSearchResults = {
+  items: [
+    {
+      ...demoDocuments[0],
+      snippet: 'Le <mark>rapport</mark> annuel présente les <mark>activités</mark> de l’année.',
+    },
+  ],
+  page: 1,
+  per_page: 20,
+  total: 1,
+  pages: 1,
+  q: 'rapport',
+  engine: 'sql_ilike',
+  facets: {
+    doc_types: [{ id: 1, label: 'Rapport', count: 1 }],
+    departments: [{ id: 1, label: 'Informatique', count: 1 }],
+    statuses: [{ value: 'active', count: 1 }],
+    confidentialities: [{ value: 'internal', count: 1 }],
+  },
+  took_ms: 12.5,
+};
+
+/** Historique de recherche (F5.4). */
+export const demoSearchHistory = {
+  items: [
+    {
+      search_id: 1,
+      query: 'rapport',
+      filters: { status: 'active', department_id: 1 },
+      results_count: 1,
+      searched_at: '2026-10-02T09:00:00Z',
+    },
+  ],
+  page: 1,
+  per_page: 10,
+  total: 1,
+  pages: 1,
+};
+
 export const handlers = [
   http.get(`${API}/auth/me`, () => HttpResponse.json(demoUser)),
 
@@ -343,6 +383,13 @@ export const handlers = [
   http.delete(`${API}/folders/:id`, () =>
     HttpResponse.json({ message: 'Dossier supprimé.' })
   ),
+
+  // --- Recherche (P4 / F5) ---
+  http.get(`${API}/search`, () => HttpResponse.json(demoSearchResults)),
+
+  http.get(`${API}/search/history`, () => HttpResponse.json(demoSearchHistory)),
+
+  http.delete(`${API}/search/history`, () => HttpResponse.json({ deleted: 1 })),
 
   // --- Réglages publics (F4 : limites de dépôt, OCR, scanner) ---
   http.get(`${API}/settings/public`, () =>

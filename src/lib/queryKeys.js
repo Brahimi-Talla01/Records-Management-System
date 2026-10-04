@@ -43,7 +43,7 @@ export const referentialsKeys = {
 export const searchKeys = {
   all: ['search'],
   results: (params) => ['search', 'results', params],
-  history: ['search', 'history'],
+  history: (params) => ['search', 'history', params],
   saved: ['search', 'saved'],
 };
 
