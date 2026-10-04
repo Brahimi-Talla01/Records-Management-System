@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Icon from '../AppIcon';
 import Button from './Button';
-import { useAuth } from '../../features/auth';
+import { useAuth, isAdmin, isSuperAdmin } from '../../features/auth';
 import {
   useNotifications,
   useUnreadNotificationsCount,
@@ -14,9 +14,10 @@ import { getNotificationTypeMeta, formatRelativeTime } from '../../lib/formatter
 const Header = ({ user = null, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user: sessionUser } = useAuth();
 
   // Notifications réelles : compteur pollé (Q5) + dernières entrées pour le panneau.
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
@@ -25,7 +26,25 @@ const Header = ({ user = null, onLogout }) => {
   const markAllRead = useMarkAllNotificationsRead();
   const notifications = notificationsQuery.data?.items || [];
 
-  // Logique de navigation (conservée)
+  // Espace Administration regroupé (Q9) : visible pour un Admin, avec les
+  // entrées super admin (campus, rétention) en plus. La garde UI n'est qu'un
+  // confort : le serveur refuse chaque endpoint (A7).
+  const admin = isAdmin(sessionUser);
+  const superAdmin = isSuperAdmin(sessionUser);
+  const adminMenuItems = [
+    { label: 'Utilisateurs', path: '/user-management', icon: 'Users' },
+    { label: 'Référentiels', path: '/referentials', icon: 'Library' },
+    { label: 'Permissions', path: '/permissions', icon: 'ShieldCheck' },
+    { label: 'Audit', path: '/audit', icon: 'ScrollText' },
+    { label: 'Réglages', path: '/settings', icon: 'Settings' },
+    ...(superAdmin
+      ? [
+          { label: 'Campus', path: '/campuses', icon: 'Building2' },
+          { label: 'Rétention', path: '/retention', icon: 'Clock' },
+        ]
+      : []),
+  ];
+
   const navigationItems = [
     { label: 'Tableau de bord', path: '/dashboard', icon: 'LayoutDashboard' },
     { label: 'Bibliothèque', path: '/document-library', icon: 'FolderOpen' },
@@ -34,15 +53,12 @@ const Header = ({ user = null, onLogout }) => {
     { label: 'Mon compte', path: '/account', icon: 'User' },
   ];
 
-  const adminItems = [
-    { label: 'Gestion utilisateurs', path: '/user-management', icon: 'Users' },
-  ];
-
   const isActive = (path) => location?.pathname === path;
 
   const handleNavigation = (path) => {
     navigate(path);
     setIsMenuOpen(false); // Ferme le menu après navigation mobile
+    setIsAdminMenuOpen(false);
   };
 
 
@@ -78,13 +94,8 @@ const Header = ({ user = null, onLogout }) => {
 
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center space-x-1">
-          {/* Fusion de navigationItems et adminItems pour un code plus sec */}
-          {[...navigationItems, ...(user?.role === 'admin' ? adminItems : [])].map((item, index) => (
+          {navigationItems.map((item) => (
             <Fragment key={item?.path}>
-              {/* Ajout d'un séparateur pour les éléments Admin */}
-              {user?.role === 'admin' && index === navigationItems.length && (
-                <div className="mx-2 h-6 w-px bg-border"></div>
-              )}
               <Button
                 variant={isActive(item?.path) ? "default" : "ghost"}
                 size="sm"
@@ -100,6 +111,54 @@ const Header = ({ user = null, onLogout }) => {
               </Button>
             </Fragment>
           ))}
+
+          {/* Espace Administration (menu regroupé, Q9) */}
+          {admin && (
+            <div className="relative ml-2 pl-2 border-l border-border">
+              <Button
+                variant={location.pathname.startsWith('/user-management') || location.pathname.startsWith('/settings') || location.pathname.startsWith('/campuses') || location.pathname.startsWith('/audit') || location.pathname.startsWith('/retention') || location.pathname.startsWith('/permissions') || location.pathname.startsWith('/referentials') ? "default" : "ghost"}
+                size="sm"
+                iconName="Shield"
+                iconPosition="left"
+                iconSize={16}
+                onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
+                aria-expanded={isAdminMenuOpen}
+                className="font-body font-medium transition-colors text-foreground hover:text-primary"
+              >
+                Administration
+              </Button>
+
+              {isAdminMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-[990]"
+                    onClick={() => setIsAdminMenuOpen(false)}
+                  />
+                  <div className="absolute top-full mt-2 left-0 w-56 bg-popover border border-border rounded-lg shadow-xl z-[1000] animate-in slide-in-from-top-1 fade-in-0 duration-200">
+                    <div className="py-2">
+                      {adminMenuItems.map((item) => (
+                        <Button
+                          key={item.path}
+                          variant="ghost"
+                          size="sm"
+                          iconName={item.icon}
+                          iconPosition="left"
+                          iconSize={16}
+                          onClick={() => handleNavigation(item.path)}
+                          fullWidth
+                          className={`justify-start font-body ${
+                            isActive(item.path) ? 'text-primary' : 'text-foreground'
+                          }`}
+                        >
+                          {item.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </nav>
 
         {/* Right Side Actions */}
@@ -263,28 +322,51 @@ const Header = ({ user = null, onLogout }) => {
         <>
           <div className="lg:hidden bg-card border-t border-border shadow-2xl absolute w-full z-[999] animate-in slide-in-from-top-1 fade-in-0 duration-300">
             <nav className="px-4 py-4 space-y-1">
-              {[...navigationItems, ...(user?.role === 'admin' ? adminItems : [])].map((item, index) => (
+              {navigationItems.map((item) => (
                 <div key={item?.path}>
-                   {/* Ajout d'un titre de section pour l'admin en mobile */}
-                   {user?.role === 'admin' && index === navigationItems.length && (
-                      <p className="text-xs font-caption text-muted-foreground mb-1 px-3 mt-3 border-t pt-3 border-border">Administration</p>
-                    )}
-                    <Button
-                      variant={isActive(item?.path) ? "default" : "ghost"}
-                      size="sm"
-                      iconName={item?.icon}
-                      iconPosition="left"
-                      iconSize={18}
-                      onClick={() => handleNavigation(item?.path)}
-                      fullWidth
-                      className={`justify-start font-body font-medium transition-colors ${
-                        isActive(item?.path) ? 'text-primary' : 'text-foreground hover:text-primary'
-                      }`}
-                    >
-                      {item?.label}
-                    </Button>
+                  <Button
+                    variant={isActive(item?.path) ? "default" : "ghost"}
+                    size="sm"
+                    iconName={item?.icon}
+                    iconPosition="left"
+                    iconSize={18}
+                    onClick={() => handleNavigation(item?.path)}
+                    fullWidth
+                    className={`justify-start font-body font-medium transition-colors ${
+                      isActive(item?.path) ? 'text-primary' : 'text-foreground hover:text-primary'
+                    }`}
+                  >
+                    {item?.label}
+                  </Button>
                 </div>
               ))}
+
+              {/* Espace Administration regroupé (Q9) */}
+              {admin && (
+                <>
+                  <p className="text-xs font-caption text-muted-foreground mb-1 px-3 mt-3 border-t pt-3 border-border">
+                    Administration
+                  </p>
+                  {adminMenuItems.map((item) => (
+                    <div key={item?.path}>
+                      <Button
+                        variant={isActive(item?.path) ? "default" : "ghost"}
+                        size="sm"
+                        iconName={item?.icon}
+                        iconPosition="left"
+                        iconSize={18}
+                        onClick={() => handleNavigation(item?.path)}
+                        fullWidth
+                        className={`justify-start font-body font-medium transition-colors ${
+                          isActive(item?.path) ? 'text-primary' : 'text-foreground hover:text-primary'
+                        }`}
+                      >
+                        {item?.label}
+                      </Button>
+                    </div>
+                  ))}
+                </>
+              )}
             </nav>
           </div>
           {/* Overlay pour le menu mobile (z-index ajusté) */}

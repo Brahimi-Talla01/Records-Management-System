@@ -1,4 +1,4 @@
-export { usersApi } from './api';
+export { usersApi, toUsersParams } from './api';
 export {
   useUsers,
   useUserStatistics,
@@ -9,4 +9,5 @@ export {
   useDeleteUser,
   useResetUserPassword,
   useImportUsers,
+  USERS_PER_PAGE,
 } from './useUsers';

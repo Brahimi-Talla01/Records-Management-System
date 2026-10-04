@@ -1,79 +1,55 @@
-import React from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import Badge from '../../../components/ui/Badge';
 import { Checkbox } from '../../../components/ui/Checkbox';
+import { Skeleton } from '../../../components/ui/Skeleton';
+import {
+  mapBackendRole,
+  getRoleLabel,
+  formatRelativeTime,
+} from '../../../lib/formatters';
 
-const UserTable = ({ 
-  users = [], 
-  selectedUsers = [], 
-  onSelectUser = () => {},
-  onSelectAll = () => {},
-  onEditUser = () => {},
+/**
+ * Tableau des comptes (F6.5) — lignes = objets API bruts (`user.to_dict()`),
+ * libellés produits par `lib/formatters`, couleurs uniquement via `Badge`.
+ */
+const roleVariant = (role) =>
+  ({
+    admin: 'primary',
+    teacher: 'info',
+    staff: 'warning',
+    student: 'neutral',
+  }[mapBackendRole(role)] || 'neutral');
+
+const UserTable = ({
+  users = [],
+  isLoading = false,
+  selected = [],
+  onToggle = () => {},
+  onToggleAll = () => {},
+  onEdit = () => {},
   onResetPassword = () => {},
   onToggleStatus = () => {},
-  sortBy = 'name',
-  sortOrder = 'asc',
-  onSort = () => {}
+  onDelete = () => {},
+  emptyTitle = 'Aucun utilisateur trouvé',
+  emptyDescription = 'Aucun compte ne correspond aux critères actuels.',
 }) => {
-  const handleSort = (column) => {
-    const newOrder = sortBy === column && sortOrder === 'asc' ? 'desc' : 'asc';
-    onSort(column, newOrder);
-  };
-
-  const getSortIcon = (column) => {
-    if (sortBy !== column) return 'ArrowUpDown';
-    return sortOrder === 'asc' ? 'ArrowUp' : 'ArrowDown';
-  };
-
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      active: { color: 'bg-success text-success-foreground', label: 'Actif' },
-      inactive: { color: 'bg-warning text-warning-foreground', label: 'Inactif' },
-      suspended: { color: 'bg-error text-error-foreground', label: 'Suspendu' },
-      pending: { color: 'bg-secondary text-secondary-foreground', label: 'En attente' }
-    };
-    
-    const config = statusConfig?.[status] || statusConfig?.pending;
+  if (isLoading && users.length === 0) {
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-caption ${config?.color}`}>
-        {config?.label}
-      </span>
+      <div className="bg-card border border-border rounded-lg shadow-card p-4 space-y-3">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
     );
-  };
+  }
 
-  const getRoleBadge = (role) => {
-    const roleConfig = {
-      admin: { color: 'bg-primary text-primary-foreground', label: 'Administrateur' },
-      teacher: { color: 'bg-accent text-accent-foreground', label: 'Enseignant' },
-      student: { color: 'bg-muted text-muted-foreground', label: 'Étudiant' }
-    };
-    
-    const config = roleConfig?.[role] || roleConfig?.student;
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-caption ${config?.color}`}>
-        {config?.label}
-      </span>
-    );
-  };
-
-  const formatLastLogin = (date) => {
-    if (!date) return 'Jamais';
-    const now = new Date();
-    const loginDate = new Date(date);
-    const diffInHours = Math.floor((now - loginDate) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'À l\'instant';
-    if (diffInHours < 24) return `Il y a ${diffInHours}h`;
-    if (diffInHours < 168) return `Il y a ${Math.floor(diffInHours / 24)}j`;
-    return loginDate?.toLocaleDateString('fr-FR');
-  };
-
-  const isAllSelected = users?.length > 0 && selectedUsers?.length === users?.length;
-  const isIndeterminate = selectedUsers?.length > 0 && selectedUsers?.length < users?.length;
+  const isAllSelected = users.length > 0 && selected.length === users.length;
+  const isIndeterminate = selected.length > 0 && selected.length < users.length;
 
   return (
     <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
-      {/* Desktop Table */}
+      {/* Desktop */}
       <div className="hidden lg:block overflow-x-auto">
         <table className="w-full">
           <thead className="bg-muted border-b border-border">
@@ -82,85 +58,78 @@ const UserTable = ({
                 <Checkbox
                   checked={isAllSelected}
                   indeterminate={isIndeterminate}
-                  onChange={onSelectAll}
+                  onChange={onToggleAll}
+                  aria-label="Tout sélectionner"
                 />
               </th>
-              {[
-                { key: 'name', label: 'Nom' },
-                { key: 'email', label: 'Email' },
-                { key: 'role', label: 'Rôle' },
-                { key: 'department', label: 'Département' },
-                { key: 'lastLogin', label: 'Dernière connexion' },
-                { key: 'status', label: 'Statut' }
-              ]?.map((column) => (
-                <th key={column?.key} className="text-left p-4">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleSort(column?.key)}
-                    className="font-heading font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    {column?.label}
-                    <Icon 
-                      name={getSortIcon(column?.key)} 
-                      size={14} 
-                      className="ml-1" 
-                    />
-                  </Button>
-                </th>
-              ))}
-              <th className="w-32 p-4 text-center">Actions</th>
+              <th className="text-left p-4 font-heading font-medium text-foreground">Compte</th>
+              <th className="text-left p-4 font-heading font-medium text-foreground">Rôle</th>
+              <th className="text-left p-4 font-heading font-medium text-foreground">
+                Département
+              </th>
+              <th className="text-left p-4 font-heading font-medium text-foreground">
+                Dernière connexion
+              </th>
+              <th className="text-left p-4 font-heading font-medium text-foreground">Statut</th>
+              <th className="w-44 p-4 text-center font-heading font-medium text-foreground">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
-            {users?.map((user) => (
+            {users.map((user) => (
               <tr
-                key={user?.id}
-                className={`border-b border-border hover:bg-muted/50 transition-colors duration-200 ${
-                  selectedUsers?.includes(user?.id) ? 'bg-accent/10' : ''
+                key={user.user_id}
+                className={`border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors ${
+                  selected.includes(user.user_id) ? 'bg-accent/10' : ''
                 }`}
               >
                 <td className="p-4">
                   <Checkbox
-                    checked={selectedUsers?.includes(user?.id)}
-                    onChange={() => onSelectUser(user?.id)}
+                    checked={selected.includes(user.user_id)}
+                    onChange={() => onToggle(user.user_id)}
+                    aria-label={`Sélectionner ${user.full_name || user.username}`}
                   />
                 </td>
                 <td className="p-4">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center shrink-0">
                       <Icon name="User" size={16} className="text-secondary-foreground" />
                     </div>
-                    <div>
-                      <p className="font-body font-medium text-foreground">{user?.name}</p>
-                      <p className="text-sm text-muted-foreground font-caption">ID: {user?.id}</p>
+                    <div className="min-w-0">
+                      <p className="font-body font-medium text-foreground truncate">
+                        {user.full_name || user.username}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-caption truncate">
+                        {user.matricule ? `${user.matricule} · ` : ''}
+                        {user.email || user.username}
+                      </p>
                     </div>
                   </div>
                 </td>
                 <td className="p-4">
-                  <p className="font-body text-foreground">{user?.email}</p>
+                  <Badge variant={roleVariant(user.role?.name)}>
+                    {getRoleLabel(mapBackendRole(user.role?.name))}
+                  </Badge>
+                </td>
+                <td className="p-4 font-body text-sm text-foreground">
+                  {user.department?.name || '—'}
+                </td>
+                <td className="p-4 font-body text-sm text-muted-foreground">
+                  {user.last_login ? formatRelativeTime(user.last_login) : 'Jamais'}
                 </td>
                 <td className="p-4">
-                  {getRoleBadge(user?.role)}
-                </td>
-                <td className="p-4">
-                  <p className="font-body text-foreground">{user?.department}</p>
-                </td>
-                <td className="p-4">
-                  <p className="text-sm font-body text-muted-foreground">
-                    {formatLastLogin(user?.lastLogin)}
-                  </p>
-                </td>
-                <td className="p-4">
-                  {getStatusBadge(user?.status)}
+                  <Badge variant={user.is_active ? 'success' : 'neutral'}>
+                    {user.is_active ? 'Actif' : 'Inactif'}
+                  </Badge>
                 </td>
                 <td className="p-4">
                   <div className="flex items-center justify-center space-x-1">
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => onEditUser(user)}
-                      title="Modifier l'utilisateur"
+                      onClick={() => onEdit(user)}
+                      title="Modifier le compte"
                       className="h-8 w-8"
                     >
                       <Icon name="Edit" size={14} />
@@ -178,13 +147,19 @@ const UserTable = ({
                       variant="ghost"
                       size="icon"
                       onClick={() => onToggleStatus(user)}
-                      title={user?.status === 'active' ? 'Désactiver' : 'Activer'}
+                      title={user.is_active ? 'Désactiver' : 'Réactiver'}
                       className="h-8 w-8"
                     >
-                      <Icon 
-                        name={user?.status === 'active' ? 'UserX' : 'UserCheck'} 
-                        size={14} 
-                      />
+                      <Icon name={user.is_active ? 'UserX' : 'UserCheck'} size={14} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDelete(user)}
+                      title="Désactiver le compte (soft delete)"
+                      className="h-8 w-8 text-muted-foreground hover:text-error"
+                    >
+                      <Icon name="Trash2" size={14} />
                     </Button>
                   </div>
                 </td>
@@ -193,44 +168,42 @@ const UserTable = ({
           </tbody>
         </table>
       </div>
-      {/* Mobile Cards */}
+
+      {/* Mobile */}
       <div className="lg:hidden">
-        {users?.map((user) => (
-          <div
-            key={user?.id}
-            className={`p-4 border-b border-border last:border-b-0 ${
-              selectedUsers?.includes(user?.id) ? 'bg-accent/10' : ''
-            }`}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-3">
+        {users.map((user) => (
+          <div key={user.user_id} className="p-4 border-b border-border last:border-b-0">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex items-center space-x-3 min-w-0">
                 <Checkbox
-                  checked={selectedUsers?.includes(user?.id)}
-                  onChange={() => onSelectUser(user?.id)}
+                  checked={selected.includes(user.user_id)}
+                  onChange={() => onToggle(user.user_id)}
+                  aria-label={`Sélectionner ${user.full_name || user.username}`}
                 />
-                <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
-                  <Icon name="User" size={18} className="text-secondary-foreground" />
-                </div>
-                <div>
-                  <p className="font-body font-medium text-foreground">{user?.name}</p>
-                  <p className="text-sm text-muted-foreground font-caption">{user?.email}</p>
+                <div className="min-w-0">
+                  <p className="font-body font-medium text-foreground truncate">
+                    {user.full_name || user.username}
+                  </p>
+                  <p className="text-xs text-muted-foreground font-caption truncate">
+                    {user.email || user.username}
+                  </p>
                 </div>
               </div>
-              {getStatusBadge(user?.status)}
+              <Badge variant={user.is_active ? 'success' : 'neutral'}>
+                {user.is_active ? 'Actif' : 'Inactif'}
+              </Badge>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
               <div>
                 <p className="text-muted-foreground font-caption">Rôle</p>
-                {getRoleBadge(user?.role)}
+                <Badge variant={roleVariant(user.role?.name)}>
+                  {getRoleLabel(mapBackendRole(user.role?.name))}
+                </Badge>
               </div>
               <div>
                 <p className="text-muted-foreground font-caption">Département</p>
-                <p className="font-body text-foreground">{user?.department}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-muted-foreground font-caption">Dernière connexion</p>
-                <p className="font-body text-foreground">{formatLastLogin(user?.lastLogin)}</p>
+                <p className="font-body text-foreground">{user.department?.name || '—'}</p>
               </div>
             </div>
 
@@ -241,7 +214,7 @@ const UserTable = ({
                 iconName="Edit"
                 iconPosition="left"
                 iconSize={14}
-                onClick={() => onEditUser(user)}
+                onClick={() => onEdit(user)}
                 className="font-body"
               >
                 Modifier
@@ -255,21 +228,29 @@ const UserTable = ({
                 onClick={() => onResetPassword(user)}
                 className="font-body"
               >
-                Réinitialiser
+                Mot de passe
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                iconName="Trash2"
+                iconPosition="left"
+                iconSize={14}
+                onClick={() => onDelete(user)}
+                className="font-body"
+              >
+                Désactiver
               </Button>
             </div>
           </div>
         ))}
       </div>
-      {users?.length === 0 && (
+
+      {users.length === 0 && (
         <div className="p-12 text-center">
           <Icon name="Users" size={48} className="mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-heading font-medium text-foreground mb-2">
-            Aucun utilisateur trouvé
-          </h3>
-          <p className="text-muted-foreground font-body">
-            Aucun utilisateur ne correspond aux critères de recherche actuels.
-          </p>
+          <h3 className="text-lg font-heading font-medium text-foreground mb-2">{emptyTitle}</h3>
+          <p className="text-muted-foreground font-body">{emptyDescription}</p>
         </div>
       )}
     </div>

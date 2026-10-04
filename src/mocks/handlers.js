@@ -188,6 +188,200 @@ export const demoSearchHistory = {
   pages: 1,
 };
 
+// --- Fixtures F6 (administration multi-campus) ---
+
+export const demoCampuses = [
+  {
+    campus_id: 1,
+    code: 'PRINCIPAL',
+    name: 'Campus Principal',
+    address: 'Av. de l’Unité',
+    city: 'Yaoundé',
+    phone: '+237 600 00 00 01',
+    email: 'principal@demo.local',
+    is_active: true,
+    created_at: '2026-09-01T08:00:00Z',
+    stats: { departments: 4, documents: 120, users: 34 },
+  },
+  {
+    campus_id: 2,
+    code: 'NORD',
+    name: 'Campus Nord',
+    address: null,
+    city: 'Garoua',
+    phone: null,
+    email: null,
+    is_active: false,
+    created_at: '2026-09-15T08:00:00Z',
+    stats: { departments: 1, documents: 8, users: 5 },
+  },
+];
+
+export const demoInstitution = {
+  institution_id: 1,
+  name: 'Université Démo',
+  short_name: 'UD',
+  slogan: 'Archiver, transmettre',
+  address: 'Yaoundé',
+  website: 'https://demo.local',
+  email: 'contact@demo.local',
+  phone: '+237 600 00 00 00',
+  logo_url: null,
+  locale: 'fr',
+  timezone: 'Africa/Douala',
+  updated_at: '2026-10-02T09:00:00Z',
+};
+
+export const demoRoles = [
+  { role_id: 1, name: 'Admin', description: 'Administrateur' },
+  { role_id: 2, name: 'Prof', description: 'Enseignant-chercheur' },
+  { role_id: 3, name: 'Secretaire', description: 'Personnel administratif' },
+  { role_id: 4, name: 'Etudiant', description: 'Étudiant' },
+];
+
+export const demoDepartments = [
+  {
+    department_id: 1,
+    name: 'Informatique',
+    code: 'INFO',
+    description: 'Département informatique',
+    folder_id: null,
+    campus_id: 1,
+  },
+  {
+    department_id: 2,
+    name: 'Mathématiques',
+    code: 'MATH',
+    description: null,
+    folder_id: null,
+    campus_id: 1,
+  },
+];
+
+export const demoDocTypeFull = {
+  doc_type_id: 1,
+  name: 'Rapport',
+  description: 'Rapports administratifs',
+  default_retention_days: 365,
+};
+
+export const demoSettingsSchema = {
+  categories: [
+    { name: 'general', label: 'Général', keys: ['general.locale', 'general.timezone'] },
+    { name: 'storage', label: 'Stockage', keys: ['storage.max_upload_mb'] },
+  ],
+  settings: [
+    {
+      key: 'general.locale',
+      type: 'choice',
+      default: 'fr',
+      category: 'general',
+      category_label: 'Général',
+      scope: 'global',
+      public: true,
+      label: 'Langue',
+      help: 'Langue de l’interface',
+      choices: ['fr', 'en'],
+    },
+    {
+      key: 'general.timezone',
+      type: 'str',
+      default: 'Africa/Douala',
+      category: 'general',
+      category_label: 'Général',
+      scope: 'campus',
+      public: false,
+      label: 'Fuseau horaire',
+    },
+    {
+      key: 'storage.max_upload_mb',
+      type: 'int',
+      default: 50,
+      category: 'storage',
+      category_label: 'Stockage',
+      scope: 'global',
+      public: true,
+      label: 'Taille maximale (Mo)',
+      min: 1,
+      max: 500,
+    },
+  ],
+};
+
+export const demoSettingsValues = {
+  campus_id: null,
+  settings: {
+    'general.locale': 'fr',
+    'general.timezone': 'Africa/Douala',
+    'storage.max_upload_mb': 75,
+  },
+};
+
+export const demoSettingsDefaults = {
+  settings: {
+    'general.locale': 'fr',
+    'general.timezone': 'Africa/Douala',
+    'storage.max_upload_mb': 50,
+  },
+};
+
+export const demoUserStats = {
+  total: 34,
+  active: 31,
+  inactive: 3,
+  by_role: [
+    { role: 'Etudiant', count: 24 },
+    { role: 'Prof', count: 6 },
+    { role: 'Admin', count: 4 },
+  ],
+  by_department: [{ department: 'Informatique', count: 12 }],
+};
+
+export const demoAuditList = {
+  items: [demoAudit],
+  page: 1,
+  per_page: 20,
+  total: 1,
+  pages: 1,
+};
+
+export const demoRetentionStatus = {
+  enabled: true,
+  warning_days: 30,
+  purge_after_days: 365,
+  expiring_soon: 3,
+  expired_active: 2,
+  archived: 12,
+  purgeable: 1,
+  last_report: null,
+};
+
+export const demoRetentionReport = {
+  report_id: 9,
+  ran_at: '2026-10-02T09:00:00Z',
+  dry_run: true,
+  warnings_sent: 3,
+  archived: 2,
+  purged: 0,
+  triggered_by: 1,
+  details: { warning: 3 },
+};
+
+export const demoRetentionReports = {
+  items: [demoRetentionReport],
+  page: 1,
+  per_page: 20,
+  total: 1,
+  pages: 1,
+};
+
+export const demoGrants = {
+  users: [
+    { user_id: 2, can_view: true, can_download: true, can_edit: false, can_delete: false },
+  ],
+  roles: [{ role_id: 2, can_view: true, can_download: false, can_edit: false, can_delete: false }],
+};
+
 export const handlers = [
   http.get(`${API}/auth/me`, () => HttpResponse.json(demoUser)),
 
@@ -258,6 +452,174 @@ export const handlers = [
 
   http.get(`${API}/users/departments`, () =>
     HttpResponse.json([{ department_id: 1, name: 'Informatique', code: 'INFO' }])
+  ),
+
+  // --- Utilisateurs : écriture, stats, import/export (F6.5) ---
+  http.get(`${API}/users/statistics`, () => HttpResponse.json(demoUserStats)),
+
+  http.post(`${API}/users`, () => HttpResponse.json(demoUsers[1], { status: 201 })),
+
+  http.put(`${API}/users/:id`, () => HttpResponse.json(demoUsers[1])),
+
+  http.delete(`${API}/users/:id`, () =>
+    HttpResponse.json({ message: 'Compte désactivé.' })
+  ),
+
+  http.post(`${API}/users/:id/reset-password`, () =>
+    HttpResponse.json({
+      message: 'Mot de passe réinitialisé',
+      temporary_password: 'TmpPass@2026',
+    })
+  ),
+
+  http.post(`${API}/users/import`, () =>
+    HttpResponse.json({
+      success: 1,
+      total: 2,
+      errors: [{ row: 3, error: 'Rôle invalide', data: { username: 'mauvais' } }],
+    })
+  ),
+
+  http.get(`${API}/users/export`, () =>
+    new HttpResponse('matricule,username\nADM001,admin.demo', {
+      headers: { 'Content-Type': 'text/csv' },
+    })
+  ),
+
+  // --- Campus & institution (F6.1–F6.3) ---
+  http.get(`${API}/campuses`, () => HttpResponse.json({ campuses: demoCampuses })),
+
+  http.get(`${API}/campuses/:id`, () => HttpResponse.json(demoCampuses[0])),
+
+  http.post(`${API}/campuses`, () => HttpResponse.json(demoCampuses[1], { status: 201 })),
+
+  http.put(`${API}/campuses/:id`, () => HttpResponse.json(demoCampuses[0])),
+
+  // La désactivation est refusée si des ressources sont rattachées (409).
+  http.patch(`${API}/campuses/:id/status`, () =>
+    HttpResponse.json(
+      {
+        error: 'Campus non vide : désactivation impossible.',
+        code: 'campus_not_empty',
+        details: { departments: 4, documents: 120, users: 34 },
+      },
+      { status: 409 }
+    )
+  ),
+
+  // La suppression physique est toujours interdite (décision Q4).
+  http.delete(`${API}/campuses/:id`, () =>
+    HttpResponse.json(
+      {
+        error: 'La suppression d’un campus est interdite.',
+        code: 'campus_deletion_forbidden',
+      },
+      { status: 409 }
+    )
+  ),
+
+  http.get(`${API}/institution`, () => HttpResponse.json(demoInstitution)),
+
+  http.put(`${API}/institution`, () => HttpResponse.json(demoInstitution)),
+
+  // --- Réglages admin (F6.3) ---
+  http.get(`${API}/settings/schema`, () => HttpResponse.json(demoSettingsSchema)),
+
+  http.get(`${API}/settings/defaults`, () => HttpResponse.json(demoSettingsDefaults)),
+
+  http.get(`${API}/settings`, () => HttpResponse.json(demoSettingsValues)),
+
+  http.put(`${API}/settings`, () => HttpResponse.json({ updated: 1 })),
+
+  // --- Référentiels en écriture (F6.4) ---
+  http.get(`${API}/roles`, () => HttpResponse.json({ roles: demoRoles })),
+
+  http.post(`${API}/roles`, () =>
+    HttpResponse.json({ role_id: 9, name: 'Vacataire', description: null }, { status: 201 })
+  ),
+
+  http.patch(`${API}/roles/:id`, () => HttpResponse.json(demoRoles[1])),
+
+  http.delete(`${API}/roles/:id`, () =>
+    HttpResponse.json(
+      { error: 'Des comptes utilisent ce rôle.', code: 'role_in_use', details: { users: 6 } },
+      { status: 409 }
+    )
+  ),
+
+  http.post(`${API}/departments`, () =>
+    HttpResponse.json(demoDepartments[1], { status: 201 })
+  ),
+
+  http.patch(`${API}/departments/:id`, () => HttpResponse.json(demoDepartments[0])),
+
+  http.delete(`${API}/departments/:id`, () =>
+    HttpResponse.json(
+      {
+        error: 'Département non vide : réaffectez son contenu.',
+        code: 'department_not_empty',
+        details: { users: 3, documents: 12 },
+      },
+      { status: 409 }
+    )
+  ),
+
+  http.post(`${API}/doc-types`, () =>
+    HttpResponse.json({ ...demoDocTypeFull, doc_type_id: 9, name: 'Nouveau' }, { status: 201 })
+  ),
+
+  http.patch(`${API}/doc-types/:id`, () => HttpResponse.json(demoDocTypeFull)),
+
+  http.delete(`${API}/doc-types/:id`, () =>
+    HttpResponse.json(
+      { error: 'Des documents utilisent ce type.', code: 'doc_type_in_use', details: { documents: 7 } },
+      { status: 409 }
+    )
+  ),
+
+  http.post(`${API}/tags`, () =>
+    HttpResponse.json({ tag_id: 9, name: 'nouveau' }, { status: 201 })
+  ),
+
+  http.delete(`${API}/tags/:id`, () => HttpResponse.json({ message: 'Tag supprimé.' })),
+
+  // --- Audit (F6.8) ---
+  http.get(`${API}/audit/export`, () =>
+    new HttpResponse('audit_id,action\n1,document_created', {
+      headers: { 'Content-Type': 'text/csv' },
+    })
+  ),
+
+  http.get(`${API}/audit`, () => HttpResponse.json(demoAuditList)),
+
+  // --- Rétention (F6.9, super admin) ---
+  http.get(`${API}/admin/retention/status`, () => HttpResponse.json(demoRetentionStatus)),
+
+  http.post(`${API}/admin/retention/run`, () => HttpResponse.json(demoRetentionReport)),
+
+  http.get(`${API}/admin/retention/reports`, () => HttpResponse.json(demoRetentionReports)),
+
+  // --- Permissions (F6.7) ---
+  http.get(`${API}/permissions/document/:id/grants`, () => HttpResponse.json(demoGrants)),
+
+  http.put(`${API}/permissions/document/:id/user/:uid`, () =>
+    HttpResponse.json({ message: 'Droits accordés.' })
+  ),
+
+  http.delete(`${API}/permissions/document/:id/user/:uid`, () =>
+    HttpResponse.json({ message: 'Droits révoqués.' })
+  ),
+
+  http.put(`${API}/permissions/document/:id/role/:rid`, () =>
+    HttpResponse.json({ message: 'Droits accordés.' })
+  ),
+
+  http.delete(`${API}/permissions/document/:id/role/:rid`, () =>
+    HttpResponse.json({ message: 'Droits révoqués.' })
+  ),
+
+  http.post(`${API}/permissions/check`, () =>
+    HttpResponse.json({ allowed: true, reason: 'grant_user' })
   ),
 
   // --- Dashboard (P4) ---
@@ -411,7 +773,7 @@ export const handlers = [
   http.get(`${API}/tags`, () => HttpResponse.json({ tags: demoTags })),
 
   http.get(`${API}/departments`, () =>
-    HttpResponse.json({ departments: [demoUser.department] })
+    HttpResponse.json({ departments: demoDepartments })
   ),
 
   // --- Système (P5/P6) ---

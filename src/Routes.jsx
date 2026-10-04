@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes as RouterRoutes, Route, Navigate, useLocation } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ScrollToTop from "./components/ScrollToTop";
-import { RequireAuth, RequireRole, useAuth } from "./features/auth";
+import { RequireAuth, RequireRole, RequireScope, useAuth } from "./features/auth";
 
 // Chaque écran est un chunk séparé (budget de bundle, A10).
 const Login = lazy(() => import('./pages/login'));
@@ -15,6 +15,12 @@ const AdvancedSearch = lazy(() => import('./pages/advanced-search'));
 const Account = lazy(() => import('./pages/account'));
 const Notifications = lazy(() => import('./pages/notifications'));
 const ResetPassword = lazy(() => import('./pages/reset-password'));
+const Campuses = lazy(() => import('./pages/campuses'));
+const Settings = lazy(() => import('./pages/settings'));
+const Referentials = lazy(() => import('./pages/referentials'));
+const Permissions = lazy(() => import('./pages/permissions'));
+const Audit = lazy(() => import('./pages/audit'));
+const Retention = lazy(() => import('./pages/retention'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const Forbidden = lazy(() => import('./pages/Forbidden'));
 
@@ -30,6 +36,12 @@ const ROUTE_TITLES = {
   '/account': 'Mon compte',
   '/notifications': 'Notifications',
   '/reset-password': 'Réinitialisation du mot de passe',
+  '/campuses': 'Campus',
+  '/settings': 'Réglages',
+  '/referentials': 'Référentiels',
+  '/permissions': 'Permissions',
+  '/audit': "Journal d'audit",
+  '/retention': 'Rétention',
   '/forbidden': 'Accès refusé',
 };
 
@@ -176,6 +188,81 @@ const Routes = () => {
             <RouteShell>
               <RequireAuth>
                 <Notifications />
+              </RequireAuth>
+            </RouteShell>
+          }
+        />
+
+        {/* Espace Administration (Q9) : gardes par rôle/périmètre ; le backend
+            reste l'autorité sur chaque endpoint (A7). */}
+        <Route
+          path="/campuses"
+          element={
+            <RouteShell>
+              <RequireAuth>
+                <RequireScope>
+                  <Campuses />
+                </RequireScope>
+              </RequireAuth>
+            </RouteShell>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <RouteShell>
+              <RequireAuth>
+                <RequireRole roles={['Admin']}>
+                  <Settings />
+                </RequireRole>
+              </RequireAuth>
+            </RouteShell>
+          }
+        />
+        <Route
+          path="/referentials"
+          element={
+            <RouteShell>
+              <RequireAuth>
+                <RequireRole roles={['Admin']}>
+                  <Referentials />
+                </RequireRole>
+              </RequireAuth>
+            </RouteShell>
+          }
+        />
+        <Route
+          path="/permissions"
+          element={
+            <RouteShell>
+              <RequireAuth>
+                <RequireRole roles={['Admin']}>
+                  <Permissions />
+                </RequireRole>
+              </RequireAuth>
+            </RouteShell>
+          }
+        />
+        <Route
+          path="/audit"
+          element={
+            <RouteShell>
+              <RequireAuth>
+                <RequireRole roles={['Admin']}>
+                  <Audit />
+                </RequireRole>
+              </RequireAuth>
+            </RouteShell>
+          }
+        />
+        <Route
+          path="/retention"
+          element={
+            <RouteShell>
+              <RequireAuth>
+                <RequireScope>
+                  <Retention />
+                </RequireScope>
               </RequireAuth>
             </RouteShell>
           }
