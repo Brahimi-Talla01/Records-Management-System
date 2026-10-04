@@ -382,6 +382,158 @@ export const searchHistorySchema = paginationSchema.extend({
   items: z.array(searchHistoryEntrySchema),
 });
 
+/** Campus (`campus.to_dict(include_stats=True)`). */
+export const campusSchema = z.looseObject({
+  campus_id: z.number(),
+  code: z.string(),
+  name: z.string(),
+  address: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  is_active: z.boolean().optional(),
+  created_at: z.string().nullable().optional(),
+  stats: z
+    .looseObject({
+      departments: z.number().optional(),
+      documents: z.number().optional(),
+      users: z.number().optional(),
+    })
+    .optional(),
+});
+
+export const campusesListSchema = z.looseObject({
+  campuses: z.array(campusSchema),
+});
+
+/** `GET/PUT /institution`. */
+export const institutionSchema = z.looseObject({
+  institution_id: z.number().nullable().optional(),
+  name: z.string(),
+  short_name: z.string().nullable().optional(),
+  slogan: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  logo_url: z.string().nullable().optional(),
+  locale: z.string().optional(),
+  timezone: z.string().optional(),
+  updated_at: z.string().nullable().optional(),
+});
+
+/** `GET /settings/schema` : définitions typées des réglages. */
+export const settingDefinitionSchema = z.looseObject({
+  key: z.string(),
+  type: z.string(),
+  default: z.unknown(),
+  category: z.string().optional(),
+  category_label: z.string().optional(),
+  scope: z.string().optional(),
+  public: z.boolean().optional(),
+  label: z.string().optional(),
+  help: z.string().optional(),
+  choices: z.array(z.string()).optional(),
+  min: z.number().nullable().optional(),
+  max: z.number().nullable().optional(),
+});
+
+export const settingsSchemaSchema = z.looseObject({
+  categories: z
+    .array(z.looseObject({ name: z.string(), label: z.string(), keys: z.array(z.string()) }))
+    .optional(),
+  settings: z.array(settingDefinitionSchema),
+});
+
+export const settingsValuesSchema = z.looseObject({
+  campus_id: z.number().nullable().optional(),
+  settings: z.record(z.string(), z.unknown()),
+});
+
+/** `GET /roles` : rôles (écriture admin en F6). */
+export const roleListSchema = z.looseObject({
+  roles: z.array(
+    z.looseObject({ role_id: z.number(), name: z.string(), description: z.string().nullable().optional() })
+  ),
+});
+
+/** `GET /users/statistics`. */
+export const userStatisticsSchema = z.looseObject({
+  total: z.number().optional(),
+  active: z.number().optional(),
+  inactive: z.number().optional(),
+  by_role: z.array(z.looseObject({ role: z.string(), count: z.number() })).optional(),
+  by_department: z.array(z.looseObject({ department: z.string(), count: z.number() })).optional(),
+});
+
+/** `POST /users/import` : rapport d'import ligne à ligne. */
+export const userImportResultSchema = z.looseObject({
+  success: z.number().optional(),
+  total: z.number().optional(),
+  errors: z
+    .array(
+      z.looseObject({
+        row: z.number().nullable().optional(),
+        error: z.string(),
+        data: z.unknown().optional(),
+      })
+    )
+    .optional(),
+});
+
+/** `GET /audit` : journal paginé (réutilise `auditEntrySchema`). */
+export const auditListSchema = paginationSchema.extend({
+  items: z.array(auditEntrySchema),
+});
+
+/** `GET /admin/retention/status`. */
+export const retentionReportSchema = z.looseObject({
+  report_id: z.number(),
+  ran_at: z.string().nullable().optional(),
+  dry_run: z.boolean().optional(),
+  warnings_sent: z.number().optional(),
+  archived: z.number().optional(),
+  purged: z.number().optional(),
+  triggered_by: z.number().nullable().optional(),
+  details: z.unknown().optional(),
+});
+
+export const retentionStatusSchema = z.looseObject({
+  enabled: z.boolean().optional(),
+  warning_days: z.number().optional(),
+  purge_after_days: z.number().optional(),
+  expiring_soon: z.number().optional(),
+  expired_active: z.number().optional(),
+  archived: z.number().optional(),
+  purgeable: z.number().optional(),
+  last_report: retentionReportSchema.nullable().optional(),
+});
+
+export const retentionReportsSchema = paginationSchema.extend({
+  items: z.array(retentionReportSchema),
+});
+
+/** `GET /permissions/document/<id>/grants` : accords utilisateurs + rôles. */
+const grantSchema = z.looseObject({
+  user_id: z.number().optional(),
+  role_id: z.number().optional(),
+  can_view: z.boolean().optional(),
+  can_download: z.boolean().optional(),
+  can_edit: z.boolean().optional(),
+  can_delete: z.boolean().optional(),
+});
+
+export const documentGrantsSchema = z.looseObject({
+  users: z.array(grantSchema).optional(),
+  roles: z.array(grantSchema).optional(),
+});
+
+/** `POST /permissions/check`. */
+export const permissionCheckSchema = z.looseObject({
+  allowed: z.boolean(),
+  reason: z.string().optional(),
+});
+
 /**
  * `GET /settings/public` (F4) : réglages exposés sans authentification.
  * Sert au dépôt : taille max, extensions autorisées, OCR et scanner.

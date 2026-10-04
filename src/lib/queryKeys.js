@@ -38,6 +38,7 @@ export const referentialsKeys = {
   docTypes: ['referentials', 'doc-types'],
   tags: ['referentials', 'tags'],
   departments: ['referentials', 'departments'],
+  roles: ['referentials', 'roles'],
 };
 
 export const searchKeys = {
@@ -70,8 +71,31 @@ export const campusesKeys = {
 export const settingsKeys = {
   all: ['settings'],
   schema: ['settings', 'schema'],
-  values: ['settings', 'values'],
+  values: (campusId) => ['settings', 'values', campusId ?? null],
+  defaults: ['settings', 'defaults'],
   public: ['settings', 'public'],
+};
+
+export const institutionKeys = {
+  all: ['institution'],
+  profile: ['institution', 'profile'],
+};
+
+export const auditKeys = {
+  all: ['audit'],
+  list: (params) => ['audit', 'list', params],
+};
+
+export const retentionKeys = {
+  all: ['retention'],
+  status: (campusId) => ['retention', 'status', campusId ?? null],
+  reports: (params) => ['retention', 'reports', params],
+};
+
+export const permissionsKeys = {
+  all: ['permissions'],
+  documentGrants: (id) => ['permissions', 'document', id, 'grants'],
+  folderGrants: (id) => ['permissions', 'folder', id, 'grants'],
 };
 
 export const systemKeys = {

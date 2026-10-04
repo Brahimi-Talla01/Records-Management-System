@@ -1,2 +1,9 @@
 export { settingsApi } from './api';
-export { usePublicSettings, UPLOAD_DEFAULTS } from './useSettings';
+export {
+  usePublicSettings,
+  useSettingsSchema,
+  useSettingsValues,
+  useSettingsDefaults,
+  useUpdateSettings,
+  UPLOAD_DEFAULTS,
+} from './useSettings';

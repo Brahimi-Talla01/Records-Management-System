@@ -1,9 +1,9 @@
 /**
  * Hooks du domaine Réglages (TanStack Query).
- * `usePublicSettings` alimente les écrans de dépôt (F4) en réglages serveur,
- * avec des valeurs de repli si l'endpoint public est indisponible.
+ * `usePublicSettings` alimente les écrans de dépôt (F4, valeurs de repli) ;
+ * les hooks `useSetting*` alimentent l'éditeur d'administration (F6).
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsApi } from './api';
 import { settingsKeys } from '../../lib/queryKeys';
 
@@ -31,4 +31,39 @@ export function usePublicSettings() {
   };
 
   return { ...query, upload };
+}
+
+/** Définitions typées des réglages (éditeur). */
+export function useSettingsSchema() {
+  return useQuery({
+    queryKey: settingsKeys.schema,
+    queryFn: () => settingsApi.schema(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Valeurs effectives pour un campus (ou global si `campusId` absent). */
+export function useSettingsValues(campusId) {
+  return useQuery({
+    queryKey: settingsKeys.values(campusId),
+    queryFn: () => settingsApi.values({ campusId }),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useSettingsDefaults() {
+  return useQuery({
+    queryKey: settingsKeys.defaults,
+    queryFn: () => settingsApi.defaults(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Enregistre un lot de réglages (PUT /settings). */
+export function useUpdateSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (items) => settingsApi.update(items),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.all }),
+  });
 }
