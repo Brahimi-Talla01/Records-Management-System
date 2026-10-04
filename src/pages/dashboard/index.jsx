@@ -1,32 +1,40 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Breadcrumb from '../../components/ui/Breadcrumb';
 import { useAuth } from '../../features/auth';
+import {
+  useDashboardSummary,
+  useDashboardActivity,
+  useDashboardExpiring,
+  useDashboardRecentDocuments,
+  useDashboardUploads,
+} from '../../features/dashboard';
+import {
+  useNotifications,
+  useUnreadNotificationsCount,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+  useDeleteNotification,
+} from '../../features/notifications';
+import { mapBackendRole, getRoleLabel } from '../../lib/formatters';
 import QuickActionsPanel from './components/QuickActionPanel';
 import StatsOverview from './components/StatsOverview';
 import RecentActivity from './components/RecentActivity';
 import NotificationCenter from './components/NotificationCenter';
 import RecentDocuments from './components/RecentDocuments';
+import ExpiringDocuments from './components/ExpiringDocuments';
+import UploadsChart from './components/UploadsChart';
 import SystemStatus from './components/SystemStatus';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Utilisateur réel depuis la session (Zustand + TanStack Query)
-  const { user: currentUser, isLoading: authLoading } = useAuth();
-
-  // Le backend nomme les rôles 'Admin', 'Prof', 'Etudiant', 'Secretaire' :
-  // on normalise vers les rôles utilisés par l'UI (admin/teacher/student/staff).
-  const mapBackendRole = (roleName) => {
-    const r = (roleName || '').toLowerCase();
-    if (r === 'admin') return 'admin';
-    if (r === 'prof' || r === 'teacher') return 'teacher';
-    if (r === 'etudiant' || r === 'student') return 'student';
-    if (r === 'secretaire' || r === 'staff') return 'staff';
-    return r;
-  };
+  const { user: currentUser, isLoading: authLoading, logout } = useAuth();
 
   const user = currentUser
     ? {
@@ -39,41 +47,52 @@ const Dashboard = () => {
       }
     : null;
 
-  const loading = authLoading;
+  // Agrégats du tableau de bord (bornés au périmètre campus côté serveur)
+  const summaryQuery = useDashboardSummary();
+  const activityQuery = useDashboardActivity({ perPage: 8 });
+  const expiringQuery = useDashboardExpiring({ perPage: 6 });
+  const recentQuery = useDashboardRecentDocuments({ limit: 6 });
+  const uploadsQuery = useDashboardUploads({ months: 12 });
+
+  // Notifications (le compteur non-lu est pollé par le Header et ce panneau)
+  const notificationsQuery = useNotifications({ perPage: 6 });
+  const { data: unreadCount = 0 } = useUnreadNotificationsCount();
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+  const deleteNotification = useDeleteNotification();
 
   useEffect(() => {
-    // Update current time every minute
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
   const handleQuickAction = (actionId) => {
     switch (actionId) {
       case 'upload':
-        window.location.href = '/document-upload';
+        navigate('/document-upload');
         break;
-      case 'scan': console.log('Opening scanner interface...');
+      case 'scan':
+        navigate('/document-upload');
         break;
       case 'search':
-        window.location.href = '/advanced-search';
+        navigate('/advanced-search');
         break;
       case 'library':
-        window.location.href = '/document-library';
-        break;
-      case 'more': console.log('Opening more actions menu...');
+        navigate('/document-library');
         break;
       default:
-        console.log(`Unknown action: ${actionId}`);
+        break;
     }
   };
 
-  const handleLogout = () => {
-    // Handle logout logic
-    console.log('Logging out...');
-    window.location.href = '/login';
+  const handleLogout = async () => {
+    try {
+      await logout.mutateAsync();
+    } catch {
+      // session déjà morte côté serveur : on redirige quand même
+    } finally {
+      navigate('/login');
+    }
   };
 
   const getWelcomeMessage = () => {
@@ -83,17 +102,7 @@ const Dashboard = () => {
     return 'Bonsoir';
   };
 
-  const getRoleDisplayName = (role) => {
-    const roleNames = {
-      admin: 'Administrateur',
-      teacher: 'Enseignant-Chercheur',
-      student: 'Étudiant',
-      staff: 'Personnel Administratif'
-    };
-    return roleNames?.[role] || 'Utilisateur';
-  };
-
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -109,35 +118,36 @@ const Dashboard = () => {
       <Header user={user} onLogout={handleLogout} />
       <main className="pt-16">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Breadcrumb */}
           <Breadcrumb />
 
           {/* Welcome Section */}
           <div className="mb-8">
-            <div className="bg-gradient-to-r from-primary to-accent rounded-lg p-6 text-white">
+            <div className="bg-gradient-to-r from-primary to-accent rounded-lg p-6 text-primary-foreground">
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-heading font-bold mb-2">
                     {getWelcomeMessage()}, {user?.name || 'Utilisateur'} !
                   </h1>
                   <p className="text-lg font-body opacity-90 mb-1">
-                    {getRoleDisplayName(user?.role)} - {user?.department}
+                    {getRoleLabel(user?.role)} - {user?.department}
                   </p>
                   <p className="text-sm font-caption opacity-75">
                     {currentTime?.toLocaleDateString('fr-FR', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
-                      day: 'numeric'
-                    })} • {currentTime?.toLocaleTimeString('fr-FR', {
+                      day: 'numeric',
+                    })}{' '}
+                    •{' '}
+                    {currentTime?.toLocaleTimeString('fr-FR', {
                       hour: '2-digit',
-                      minute: '2-digit'
+                      minute: '2-digit',
                     })}
                   </p>
                 </div>
                 <div className="hidden lg:block">
-                  <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                    <Icon name="Archive" size={40} color="blue" />
+                  <div className="w-20 h-20 bg-primary-foreground/20 rounded-full flex items-center justify-center">
+                    <Icon name="Archive" size={40} />
                   </div>
                 </div>
               </div>
@@ -146,40 +156,55 @@ const Dashboard = () => {
 
           {/* Stats Overview */}
           <div className="mb-8">
-            <StatsOverview userRole={user?.role} stats={{}} />
+            <StatsOverview summary={summaryQuery.data} isLoading={summaryQuery.isLoading} />
           </div>
 
           {/* Main Dashboard Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column - Main Content */}
             <div className="lg:col-span-2 space-y-8">
-              {/* Recent Documents */}
-              <RecentDocuments userRole={user?.role} documents={[]} />
+              <UploadsChart months={uploadsQuery.data?.months} isLoading={uploadsQuery.isLoading} />
 
-              {/* Recent Activity */}
-              <RecentActivity userRole={user?.role} activities={[]} />
+              <RecentDocuments
+                documents={recentQuery.data?.items}
+                isLoading={recentQuery.isLoading}
+              />
 
-              {/* System Status (Admin Only) */}
+              <RecentActivity
+                activities={activityQuery.data?.items}
+                isLoading={activityQuery.isLoading}
+                showViewAll={user?.role === 'admin'}
+              />
+
+              <ExpiringDocuments
+                documents={expiringQuery.data?.items}
+                days={30}
+                isLoading={expiringQuery.isLoading}
+              />
+
               <SystemStatus userRole={user?.role} />
             </div>
 
-            {/* Right Column - Sidebar */}
             <div className="space-y-8">
-              {/* Quick Actions */}
               <QuickActionsPanel userRole={user?.role} onAction={handleQuickAction} />
 
-              {/* Notifications */}
-              <NotificationCenter userRole={user?.role} notifications={[]} />
+              <NotificationCenter
+                notifications={notificationsQuery.data?.items}
+                unreadCount={unreadCount}
+                isLoading={notificationsQuery.isLoading}
+                onMarkRead={(id) => markRead.mutate(id)}
+                onMarkAllRead={() => markAllRead.mutate()}
+                onDelete={(id) => deleteNotification.mutate(id)}
+              />
 
               {/* Help & Support */}
               <div className="bg-card border border-border rounded-lg p-6 shadow-card">
                 <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                    <Icon name="HelpCircle" size={18} color="white" />
+                  <div className="w-8 h-8 bg-info rounded-lg flex items-center justify-center">
+                    <Icon name="HelpCircle" size={18} className="text-info-foreground" />
                   </div>
                   <h3 className="text-lg font-heading font-semibold text-foreground">Aide & Support</h3>
                 </div>
-                
+
                 <div className="space-y-3">
                   <Button
                     variant="ghost"
@@ -214,14 +239,12 @@ const Dashboard = () => {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-border">
-                  <div className="bg-blue-50 rounded-lg p-3">
+                  <div className="bg-info/10 rounded-lg p-3">
                     <div className="flex items-start space-x-2">
-                      <Icon name="Info" size={16} className="text-blue-600 mt-0.5" />
+                      <Icon name="Info" size={16} className="text-info mt-0.5" />
                       <div>
-                        <p className="text-sm font-body text-blue-800 mb-1">
-                          Nouveau dans UniArchive ?
-                        </p>
-                        <p className="text-xs text-blue-600 font-caption">
+                        <p className="text-sm font-body text-info mb-1">Nouveau dans UniArchive ?</p>
+                        <p className="text-xs text-info font-caption">
                           Consultez notre guide de démarrage rapide pour bien commencer.
                         </p>
                       </div>

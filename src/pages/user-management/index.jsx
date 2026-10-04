@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Breadcrumb from '../../components/ui/Breadcrumb';
 import UserTable from './components/UserTable';
@@ -15,18 +16,16 @@ import {
   useRoles,
   useDepartments,
 } from '../../features/users';
-import { useAuth } from '../../features/auth';
+import {
+  useAuth,
+  useSecurityAlerts,
+  useResolveSecurityAlert,
+} from '../../features/auth';
 import { API_BASE_URL } from '../../lib/api';
-
-// Mapping des rôles backend (Admin/Prof/Etudiant/Secretaire) vers les clés UI
-const mapBackendRole = (roleName) => {
-  const r = (roleName || '').toLowerCase();
-  if (r === 'admin') return 'admin';
-  if (r === 'prof') return 'teacher';
-  if (r === 'etudiant') return 'student';
-  if (r === 'secretaire') return 'staff';
-  return r;
-};
+import { useToast } from '../../components/ui/useToast';
+import { useConfirm } from '../../components/ui/useConfirm';
+import { toAppError } from '../../lib/errors';
+import { mapBackendRole, getAlertTypeLabel } from '../../lib/formatters';
 
 const UserManagement = () => {
   // Données serveur (TanStack Query)
@@ -38,6 +37,11 @@ const UserManagement = () => {
 
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
+  const securityAlertsQuery = useSecurityAlerts();
+  const resolveAlert = useResolveSecurityAlert();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const navigate = useNavigate();
 
   // Utilisateur connecté (session)
   const { user: me } = useAuth();
@@ -114,30 +118,22 @@ const UserManagement = () => {
     }
   ];
 
-  // Mock security alerts (à brancher sur SecurityAlert en phase 2)
-  const mockSecurityAlerts = [
-    {
-      id: 1,
-      title: 'Tentatives de connexion multiples échouées',
-      description: 'Utilisateur jean.dupont@universite.fr - 5 tentatives en 10 minutes',
-      severity: 'high',
-      timestamp: new Date(Date.now() - 30 * 60 * 1000)
-    },
-    {
-      id: 2,
-      title: 'Connexion depuis une nouvelle localisation',
-      description: 'Marie Dubois connectée depuis Paris (inhabituel)',
-      severity: 'medium',
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000)
-    },
-    {
-      id: 3,
-      title: 'Compte inactif depuis longtemps',
-      description: "Lucas Bernard n'a pas accédé au système depuis 14 jours",
-      severity: 'low',
-      timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000)
-    }
-  ];
+  // Alertes de sécurité réelles du compte connecté (GET /auth/security-alerts),
+  // remappées sur la forme attendue par ActivityPanel.
+  const securityAlerts = (securityAlertsQuery.data || []).map((alert) => ({
+    id: alert.alert_id,
+    title: getAlertTypeLabel(alert.alert_type),
+    description: alert.message,
+    severity: alert.severity,
+    timestamp: alert.created_at,
+  }));
+
+  const handleResolveAlert = (alertId) => {
+    resolveAlert.mutate(alertId, {
+      onSuccess: () => toast.success('Alerte marquée comme résolue.'),
+      onError: (err) => toast.error(toAppError(err).message),
+    });
+  };
 
   // Utilisateur connecté pour le Header (session réelle)
   const headerUser = me
@@ -263,18 +259,28 @@ const UserManagement = () => {
       setIsModalOpen(false);
       setSelectedUsers([]);
     } catch (err) {
-      alert(err.response?.data?.error || 'Erreur lors de la sauvegarde');
+      toast.error(toAppError(err).message);
     }
   };
 
   const handleResetPassword = async (user) => {
-    if (!window.confirm(`Réinitialiser le mot de passe de ${user?.name} ?`)) return;
+    const confirmed = await confirm({
+      title: 'Réinitialiser le mot de passe',
+      description: `Réinitialiser le mot de passe de ${user?.name} ?`,
+      confirmLabel: 'Réinitialiser',
+    });
+    if (!confirmed) return;
     try {
       const { usersApi } = await import('../../features/users/api');
-      await usersApi.resetPassword(user.id, 'ChangeMe@123');
-      alert(`Mot de passe réinitialisé pour ${user?.name}. Un email a été envoyé.`);
+      const result = await usersApi.resetPassword(user.id, 'ChangeMe@123');
+      const temporary = result?.temporary_password;
+      toast.success(
+        temporary
+          ? `Mot de passe temporaire de ${user?.name} : ${temporary}`
+          : `Mot de passe réinitialisé pour ${user?.name}.`
+      );
     } catch (err) {
-      alert(err.response?.data?.error || 'Erreur lors de la réinitialisation');
+      toast.error(toAppError(err).message);
     }
   };
 
@@ -285,13 +291,15 @@ const UserManagement = () => {
         payload: { is_active: user.status === 'inactive' },
       });
     } catch (err) {
-      alert(err.response?.data?.error || 'Erreur lors du changement de statut');
+      toast.error(toAppError(err).message);
     }
   };
 
   const handleBulkAction = (action, count) => {
-    // Les actions groupées nécessitent un endpoint dédié (à venir en phase 2)
-    alert(`Action groupée "${action}" sur ${count} utilisateur(s) : nécessite un endpoint backend dédié.`);
+    // Actions groupées : masquées tant que POST /api/users/bulk n'existe pas (R6-02, P7).
+    toast.info(
+      `Action groupée « ${action} » indisponible pour ${count} compte(s) : fonctionnalité à venir.`
+    );
   };
 
   const handleImportUsers = () => {
@@ -304,11 +312,11 @@ const UserManagement = () => {
       try {
         const { usersApi } = await import('../../features/users/api');
         const result = await usersApi.importCsv(file);
-        alert(
+        toast.success(
           `Import terminé : ${result.success} succès, ${result.errors?.length || 0} erreur(s)`
         );
       } catch (err) {
-        alert(err.response?.data?.error || 'Erreur lors de l\'import');
+        toast.error(toAppError(err).message);
       }
     };
     input.click();
@@ -316,11 +324,11 @@ const UserManagement = () => {
 
   const handleExportUsers = () => {
     // Le backend renvoie un CSV en attachment (cookie de session envoyé automatiquement)
-    window.open(`${API_BASE_URL}/users/export`, '_blank');
+    window.open(`${API_BASE_URL}/users/export`, '_blank', 'noopener');
   };
 
   const handleLogout = () => {
-    window.location.href = '/login';
+    navigate('/login');
   };
 
   if (usersQuery.isLoading) {
@@ -413,7 +421,8 @@ const UserManagement = () => {
               <div className="lg:w-80 xl:w-96">
                 <ActivityPanel
                   activities={mockActivities}
-                  securityAlerts={mockSecurityAlerts}
+                  securityAlerts={securityAlerts}
+                  onResolveAlert={handleResolveAlert}
                 />
               </div>
             )}

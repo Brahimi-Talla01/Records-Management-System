@@ -7,7 +7,7 @@ const UniversityBranding = () => {
       {/* University Logo */}
       <div className="flex items-center justify-center space-x-3">
         <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-          <Icon name="GraduationCap" size={28} color="white" />
+          <Icon name="GraduationCap" size={28} className="text-primary-foreground" />
         </div>
         <div className="text-left">
           <h1 className="text-2xl font-heading font-bold text-foreground">

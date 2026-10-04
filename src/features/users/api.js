@@ -2,12 +2,13 @@
  * Endpoints API du domaine Users.
  */
 import { api } from '../../lib/api';
+import { parseOrThrow, usersListSchema } from '../../lib/validate';
 
 export const usersApi = {
   list: async ({ page = 1, perPage = 20, filters = {} } = {}) => {
     const params = { page, per_page: perPage, ...filters };
     const { data } = await api.get('/users', { params });
-    return data; // { users, total, pages, current_page, per_page }
+    return parseOrThrow(usersListSchema, data, 'GET /users');
   },
 
   get: async (userId) => {

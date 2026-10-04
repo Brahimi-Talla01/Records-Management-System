@@ -128,7 +128,7 @@ const UserModal = ({
     <div className="fixed inset-0 z-[1000] flex items-center justify-center">
       {/* Overlay */}
       <div 
-        className="absolute inset-0 bg-black/60 bg-opacity-50"
+        className="absolute inset-0 bg-foreground/50"
         onClick={onClose}
       />
       {/* Modal */}
@@ -137,7 +137,7 @@ const UserModal = ({
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Icon name={mode === 'add' ? 'UserPlus' : 'Edit'} size={16} color="white" />
+              <Icon name={mode === 'add' ? 'UserPlus' : 'Edit'} size={16} className="text-primary-foreground" />
             </div>
             <div>
               <h2 className="text-lg font-heading font-semibold text-foreground">

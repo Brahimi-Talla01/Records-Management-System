@@ -61,7 +61,7 @@ const SearchResults = ({
       size: "1.8 MB",
       confidentiality: "Interne",
       relevanceScore: 87,
-      snippet: "Ce rapport présente les activités réalisées lors du stage de développement web au sein de l\'entreprise TechCorp...",
+      snippet: "Ce rapport présente les activités réalisées lors du stage de développement web au sein de l'entreprise TechCorp...",
       tags: ["Stage", "Développement", "Web"],
       thumbnail: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&h=140&fit=crop",
       hasAccess: true

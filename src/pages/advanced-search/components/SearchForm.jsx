@@ -61,7 +61,7 @@ const SearchForm = ({ onSearch, onReset, isLoading = false }) => {
 
   const handleInputChange = (field, value) => {
     if (field?.includes('.')) {
-      const [parent, child] = field?.split('.');
+      const [parent, child] = (field || '').split('.');
       setSearchCriteria(prev => ({
         ...prev,
         [parent]: {

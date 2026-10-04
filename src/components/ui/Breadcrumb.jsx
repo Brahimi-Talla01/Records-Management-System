@@ -1,10 +1,11 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Icon from '../AppIcon';
 import Button from './Button';
 
 const Breadcrumb = ({ customItems = null }) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const routeLabels = {
     '/dashboard': 'Tableau de bord',
@@ -12,6 +13,12 @@ const Breadcrumb = ({ customItems = null }) => {
     '/document-upload': 'Téléchargement de documents',
     '/advanced-search': 'Recherche avancée',
     '/user-management': 'Gestion des utilisateurs',
+  };
+
+  // Segment d'ID (fiche document) : libellé neutre plutôt que le nombre brut
+  const segmentLabel = (path, segment) => {
+    if (path.startsWith('/document-library/')) return 'Fiche document';
+    return routeLabels?.[path] || segment?.charAt(0)?.toUpperCase() + segment?.slice(1);
   };
 
   const generateBreadcrumbs = () => {
@@ -25,7 +32,7 @@ const Breadcrumb = ({ customItems = null }) => {
     let currentPath = '';
     pathSegments?.forEach((segment, index) => {
       currentPath += `/${segment}`;
-      const label = routeLabels?.[currentPath] || segment?.charAt(0)?.toUpperCase() + segment?.slice(1);
+      const label = segmentLabel(currentPath, segment);
       
       breadcrumbs?.push({
         label,
@@ -41,7 +48,7 @@ const Breadcrumb = ({ customItems = null }) => {
 
   const handleNavigation = (path) => {
     if (path && path !== location?.pathname) {
-      window.location.href = path;
+      navigate(path);
     }
   };
 

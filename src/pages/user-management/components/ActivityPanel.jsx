@@ -1,8 +1,10 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import Badge from '../../../components/ui/Badge';
+import { getAlertSeverityMeta } from '../../../lib/formatters';
 
-const ActivityPanel = ({ activities = [], securityAlerts = [] }) => {
+const ActivityPanel = ({ activities = [], securityAlerts = [], onResolveAlert = null }) => {
   const formatActivityTime = (date) => {
     const now = new Date();
     const activityDate = new Date(date);
@@ -42,15 +44,6 @@ const ActivityPanel = ({ activities = [], securityAlerts = [] }) => {
     return colorMap?.[type] || 'text-muted-foreground';
   };
 
-  const getAlertSeverity = (severity) => {
-    const severityConfig = {
-      high: { color: 'text-error', bg: 'bg-error/10', label: 'Élevée' },
-      medium: { color: 'text-warning', bg: 'bg-warning/10', label: 'Moyenne' },
-      low: { color: 'text-accent', bg: 'bg-accent/10', label: 'Faible' }
-    };
-    return severityConfig?.[severity] || severityConfig?.low;
-  };
-
   return (
     <div className="space-y-6">
       {/* Security Alerts */}
@@ -70,20 +63,17 @@ const ActivityPanel = ({ activities = [], securityAlerts = [] }) => {
         <div className="max-h-64 overflow-y-auto">
           {securityAlerts?.length > 0 ? (
             securityAlerts?.map((alert) => {
-              const severity = getAlertSeverity(alert?.severity);
+              const severity = getAlertSeverityMeta(alert?.severity);
               return (
                 <div key={alert?.id} className="p-4 border-b border-border last:border-b-0">
-                  <div className="flex items-start space-x-3">
-                    <div className={`w-2 h-2 rounded-full mt-2 ${severity?.color?.replace('text-', 'bg-')}`} />
+                  <div className="flex items-start gap-3">
+                    <Badge variant={severity.variant} className="mt-0.5 shrink-0">
+                      {severity.label}
+                    </Badge>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="font-body font-medium text-sm text-foreground">
-                          {alert?.title}
-                        </p>
-                        <span className={`px-2 py-1 rounded-full text-xs font-caption ${severity?.bg} ${severity?.color}`}>
-                          {severity?.label}
-                        </span>
-                      </div>
+                      <p className="font-body font-medium text-sm text-foreground">
+                        {alert?.title}
+                      </p>
                       <p className="text-sm text-muted-foreground font-body mb-2">
                         {alert?.description}
                       </p>
@@ -91,9 +81,16 @@ const ActivityPanel = ({ activities = [], securityAlerts = [] }) => {
                         <p className="text-xs text-muted-foreground font-caption">
                           {formatActivityTime(alert?.timestamp)}
                         </p>
-                        <Button variant="ghost" size="sm" className="text-xs font-body">
-                          Résoudre
-                        </Button>
+                        {onResolveAlert && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs font-body"
+                            onClick={() => onResolveAlert(alert?.id)}
+                          >
+                            Résoudre
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>

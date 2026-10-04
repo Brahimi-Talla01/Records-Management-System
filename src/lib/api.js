@@ -21,8 +21,10 @@ function getCookie(name) {
 export const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true, // envoie/reçoit les cookies de session
-  headers: { 'Content-Type': 'application/json' },
 });
+// Aucun `Content-Type` par défaut : axios pose `application/json` pour un
+// objet et laisse le navigateur poser `multipart/form-data; boundary=…` pour
+// un `FormData` (dépôt de fichiers, F4).
 
 // Header CSRF sur toutes les méthodes mutantes
 api.interceptors.request.use((config) => {

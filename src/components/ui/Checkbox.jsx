@@ -46,7 +46,7 @@ const Checkbox = React.forwardRef(({
                         sizeClasses?.[size],
                         checked && "bg-primary text-primary-foreground border-primary",
                         indeterminate && "bg-primary text-primary-foreground border-primary",
-                        error && "border-destructive",
+                        error && "border-error",
                         disabled && "cursor-not-allowed opacity-50"
                     )}
                 >
@@ -65,11 +65,11 @@ const Checkbox = React.forwardRef(({
                             htmlFor={checkboxId}
                             className={cn(
                                 "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer",
-                                error ? "text-destructive" : "text-foreground"
+                                error ? "text-error" : "text-foreground"
                             )}
                         >
                             {label}
-                            {required && <span className="text-destructive ml-1">*</span>}
+                            {required && <span className="text-error ml-1">*</span>}
                         </label>
                     )}
 
@@ -80,7 +80,7 @@ const Checkbox = React.forwardRef(({
                     )}
 
                     {error && (
-                        <p className="text-sm text-destructive">
+                        <p className="text-sm text-error">
                             {error}
                         </p>
                     )}
@@ -113,10 +113,10 @@ const CheckboxGroup = React.forwardRef(({
             {label && (
                 <legend className={cn(
                     "text-sm font-medium",
-                    error ? "text-destructive" : "text-foreground"
+                    error ? "text-error" : "text-foreground"
                 )}>
                     {label}
-                    {required && <span className="text-destructive ml-1">*</span>}
+                    {required && <span className="text-error ml-1">*</span>}
                 </legend>
             )}
 
@@ -131,7 +131,7 @@ const CheckboxGroup = React.forwardRef(({
             </div>
 
             {error && (
-                <p className="text-sm text-destructive">
+                <p className="text-sm text-error">
                     {error}
                 </p>
             )}

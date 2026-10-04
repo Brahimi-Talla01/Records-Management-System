@@ -1,480 +1,428 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * Bibliothèque de documents (F3).
+ *
+ * Toute la vue (filtres, tri, page, dossier, pagination) vit dans l'URL :
+ * une URL copiée rouvre la même vue et le retour navigateur conserve les filtres.
+ * Aucune donnée serveur en useState (règle M12) — seule la sélection
+ * d'affichage, qui n'existe que côté client, est locale.
+ */
+import { useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Breadcrumb from '../../components/ui/Breadcrumb';
-import DocumentActionToolbar from '../../components/ui/DocumentActionToolbar';
+import Button from '../../components/ui/Button';
+import Icon from '../../components/AppIcon';
+import { useToast } from '../../components/ui/useToast';
+import { useConfirm } from '../../components/ui/useConfirm';
 import FolderNavigation from './components/FolderNavigation';
 import DocumentFilters from './components/DocumentFilters';
 import DocumentTable from './components/DocumentTable';
-import DocumentPreviewModal from './components/DocumentPreviewModal';
 import BulkActionBar from './components/BulkActionBar';
-import Button from '../../components/ui/Button';
-import Icon from '../../components/AppIcon';
+import DocumentPreviewModal from './components/DocumentPreviewModal';
+import { useAuth, isAdmin, hasRole } from '../../features/auth';
+import {
+  useDocuments,
+  useDeleteDocument,
+  useRestoreDocument,
+  useBulkDocuments,
+  documentsApi,
+  parseLibraryParams,
+  toSearchParams,
+  toListQuery,
+  countActiveFilters,
+} from '../../features/documents';
+import {
+  useFolderTree,
+  useFolderPath,
+  useCreateFolder,
+  useUpdateFolder,
+  useDeleteFolder,
+} from '../../features/folders';
+import { useDocTypes, useTags, useDepartments } from '../../features/referentials';
+import { toAppError } from '../../lib/errors';
+import { mapBackendRole } from '../../lib/formatters';
 
 const DocumentLibrary = () => {
-  const [user] = useState({
-    id: 1,
-    name: "Marie Dubois",
-    role: "admin",
-    email: "marie.dubois@universite.fr"
-  });
+  const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const { user: me, logout } = useAuth();
 
-  const [documents, setDocuments] = useState([]);
-  const [filteredDocuments, setFilteredDocuments] = useState([]);
-  const [selectedDocuments, setSelectedDocuments] = useState([]);
-  const [currentPath, setCurrentPath] = useState([]);
-  const [folders, setFolders] = useState([]);
-  const [filters, setFilters] = useState({});
-  const [sortBy, setSortBy] = useState('name');
-  const [sortOrder, setSortOrder] = useState('asc');
-  const [viewMode, setViewMode] = useState('table');
+  // --- Vue = URL (source unique de vérité) ---
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = useMemo(() => parseLibraryParams(searchParams), [searchParams]);
+  const query = useMemo(() => toListQuery(view), [view]);
+
+  const patchView = (patch, { replace = false } = {}) => {
+    setSearchParams(toSearchParams({ ...view, ...patch }), { replace });
+  };
+
+  // --- Données serveur ---
+  const documentsQuery = useDocuments(query);
+  const treeQuery = useFolderTree();
+  const pathQuery = useFolderPath(view.folder_id);
+  const docTypesQuery = useDocTypes();
+  const tagsQuery = useTags();
+  const departmentsQuery = useDepartments();
+
+  const deleteDocument = useDeleteDocument();
+  const restoreDocument = useRestoreDocument();
+  const bulkDocuments = useBulkDocuments();
+  const createFolder = useCreateFolder();
+  const updateFolder = useUpdateFolder();
+  const deleteFolder = useDeleteFolder();
+
+  // --- Sélection (état d'affichage, pas de donnée serveur) ---
+  const [selected, setSelected] = useState([]);
   const [previewDocument, setPreviewDocument] = useState(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
 
-  // Mock data
-  const mockDocuments = [
-    {
-      id: 1,
-      name: "Rapport_Recherche_IA_2024.pdf",
-      type: "pdf",
-      category: "Documents de recherche",
-      department: "Informatique",
-      size: 2457600,
-      uploadDate: "2024-09-15T10:30:00Z",
-      modifiedDate: "2024-09-20T14:15:00Z",
-      confidentiality: "internal",
-      author: "Dr. Jean Martin",
-      description: "Rapport annuel sur les avancées en intelligence artificielle au sein du département",
-      tags: ["IA", "recherche", "2024", "rapport"],
-      permissions: ["read", "download", "share"]
-    },
-    {
-      id: 2,
-      name: "Dossier_Etudiant_12345.docx",
-      type: "docx",
-      category: "Dossiers étudiants",
-      department: "Administration",
-      size: 1024000,
-      uploadDate: "2024-09-10T09:15:00Z",
-      modifiedDate: "2024-09-25T16:45:00Z",
-      confidentiality: "confidential",
-      author: "Service Scolarité",
-      description: "Dossier académique complet de l\'étudiant Pierre Durand",
-      tags: ["étudiant", "dossier", "scolarité"],
-      permissions: ["read", "download"]
-    },
-    {
-      id: 3,
-      name: "These_Mathematiques_Appliquees.pdf",
-      type: "pdf",
-      category: "Thèses",
-      department: "Mathématiques",
-      size: 15728640,
-      uploadDate: "2024-08-20T14:20:00Z",
-      modifiedDate: "2024-09-01T11:30:00Z",
-      confidentiality: "public",
-      author: "Sophie Laurent",
-      description: "Thèse de doctorat sur les applications des mathématiques en modélisation climatique",
-      tags: ["thèse", "mathématiques", "climat", "modélisation"],
-      permissions: ["read", "download", "share"]
-    },
-    {
-      id: 4,
-      name: "Budget_Departement_2024.xlsx",
-      type: "xlsx",
-      category: "Documents administratifs",
-      department: "Administration",
-      size: 512000,
-      uploadDate: "2024-09-01T08:00:00Z",
-      modifiedDate: "2024-09-28T17:20:00Z",
-      confidentiality: "restricted",
-      author: "Direction Financière",
-      description: "Budget prévisionnel et réalisé pour l\'année 2024",
-      tags: ["budget", "finances", "2024"],
-      permissions: ["read"]
-    },
-    {
-      id: 5,
-      name: "Cours_Physique_Quantique_L3.pptx",
-      type: "pptx",
-      category: "Notes de cours",
-      department: "Physique",
-      size: 8388608,
-      uploadDate: "2024-09-05T13:45:00Z",
-      modifiedDate: "2024-09-22T10:15:00Z",
-      confidentiality: "internal",
-      author: "Prof. Michel Rousseau",
-      description: "Support de cours pour le module de physique quantique niveau L3",
-      tags: ["cours", "physique", "quantique", "L3"],
-      permissions: ["read", "download", "share"]
-    },
-    {
-      id: 6,
-      name: "Resultats_Enquete_Satisfaction.pdf",
-      type: "pdf",
-      category: "Documents administratifs",
-      department: "Administration",
-      size: 3145728,
-      uploadDate: "2024-09-12T16:30:00Z",
-      modifiedDate: "2024-09-18T09:45:00Z",
-      confidentiality: "internal",
-      author: "Service Qualité",
-      description: "Résultats de l\'enquête de satisfaction étudiante pour l\'année académique 2023-2024",
-      tags: ["enquête", "satisfaction", "étudiants", "qualité"],
-      permissions: ["read", "download", "share"]
+  const data = documentsQuery.data;
+  const documents = data?.items || [];
+  const isDeletedView = view.status === 'deleted';
+
+  // Dossier : création/édition = Admin·Secrétaire, suppression = Admin (miroir serveur).
+  const canWriteFolders = hasRole(me, ['Admin', 'Secretaire']);
+  const canManageFolders = isAdmin(me);
+  const canDeleteDocuments = isAdmin(me);
+
+  const headerUser = me
+    ? { name: me.full_name || me.username, role: mapBackendRole(me.role?.name), email: me.email }
+    : null;
+
+  const handleLogout = async () => {
+    try {
+      await logout.mutateAsync();
+    } catch {
+      // session déjà morte côté serveur
+    } finally {
+      navigate('/login');
     }
-  ];
+  };
 
-  const mockFolders = [
-    {
-      id: 1,
-      name: "Informatique",
-      hasSubfolders: true,
-      documentCount: 15,
-      path: ["Informatique"]
-    },
-    {
-      id: 2,
-      name: "Mathématiques",
-      hasSubfolders: true,
-      documentCount: 8,
-      path: ["Mathématiques"]
-    },
-    {
-      id: 3,
-      name: "Physique",
-      hasSubfolders: true,
-      documentCount: 12,
-      path: ["Physique"]
-    },
-    {
-      id: 4,
-      name: "Administration",
-      hasSubfolders: false,
-      documentCount: 25,
-      path: ["Administration"]
-    },
-    {
-      id: 5,
-      name: "Thèses",
-      hasSubfolders: true,
-      documentCount: 45,
-      path: ["Thèses"]
-    },
-    {
-      id: 6,
-      name: "Archives",
-      hasSubfolders: true,
-      documentCount: 120,
-      path: ["Archives"]
-    }
-  ];
+  const handleSort = (column) => {
+    const nextOrder = view.sort === column && view.order === 'asc' ? 'desc' : 'asc';
+    patchView({ sort: column, order: nextOrder, page: 1, cursor: null });
+  };
 
-  useEffect(() => {
-    // Simulate loading
-    const loadData = async () => {
-      setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setDocuments(mockDocuments);
-      setFilteredDocuments(mockDocuments);
-      setFolders(mockFolders);
-      setIsLoading(false);
-    };
-    
-    loadData();
-  }, []);
+  const handleOpen = (document) => navigate(`/document-library/${document.document_id}`);
 
-  useEffect(() => {
-    // Apply filters and sorting
-    let filtered = [...documents];
+  const handleToggle = (documentId, checked) => {
+    setSelected((prev) =>
+      checked ? [...prev, documentId] : prev.filter((id) => id !== documentId)
+    );
+  };
 
-    // Apply filters
-    if (filters?.type && filters?.type !== 'all') {
-      if (filters?.type === 'student-files') {
-        filtered = filtered?.filter(doc => doc?.category === 'Dossiers étudiants');
-      } else if (filters?.type === 'theses') {
-        filtered = filtered?.filter(doc => doc?.category === 'Thèses');
-      } else if (filters?.type === 'administrative') {
-        filtered = filtered?.filter(doc => doc?.category === 'Documents administratifs');
-      } else if (filters?.type === 'course-notes') {
-        filtered = filtered?.filter(doc => doc?.category === 'Notes de cours');
-      } else if (filters?.type === 'research') {
-        filtered = filtered?.filter(doc => doc?.category === 'Documents de recherche');
+  const handleToggleAll = (checked) => {
+    setSelected(checked ? documents.map((doc) => doc.document_id) : []);
+  };
+
+  /** Télécharge la dernière version connue du document. */
+  const handleDownload = async (document) => {
+    try {
+      const detail = await documentsApi.get(document.document_id);
+      const latest = (detail.versions || [])[0];
+      if (!latest) {
+        toast.warning('Ce document n’a encore aucune version.');
+        return;
       }
-    }
-
-    if (filters?.department && filters?.department !== 'all') {
-      filtered = filtered?.filter(doc => 
-        doc?.department?.toLowerCase() === filters?.department?.toLowerCase()
+      const name = await documentsApi.downloadVersion(
+        document.document_id,
+        latest.version_id,
+        `${document.title}.bin`
       );
+      toast.success(`Téléchargement « ${name} » lancé.`);
+    } catch (error) {
+      toast.error(toAppError(error).message);
     }
+  };
 
-    if (filters?.confidentiality && filters?.confidentiality !== 'all') {
-      filtered = filtered?.filter(doc => doc?.confidentiality === filters?.confidentiality);
-    }
-
-    if (filters?.format && filters?.format !== 'all') {
-      if (filters?.format === 'image') {
-        filtered = filtered?.filter(doc => ['jpg', 'jpeg', 'png', 'gif']?.includes(doc?.type?.toLowerCase()));
-      } else {
-        filtered = filtered?.filter(doc => doc?.type?.toLowerCase()?.includes(filters?.format));
-      }
-    }
-
-    if (filters?.startDate) {
-      filtered = filtered?.filter(doc => 
-        new Date(doc.uploadDate) >= new Date(filters.startDate)
-      );
-    }
-
-    if (filters?.endDate) {
-      filtered = filtered?.filter(doc => 
-        new Date(doc.uploadDate) <= new Date(filters.endDate)
-      );
-    }
-
-    if (filters?.author) {
-      filtered = filtered?.filter(doc => 
-        doc?.author?.toLowerCase()?.includes(filters?.author?.toLowerCase())
-      );
-    }
-
-    if (filters?.tags) {
-      const searchTags = filters?.tags?.toLowerCase()?.split(',')?.map(tag => tag?.trim());
-      filtered = filtered?.filter(doc => 
-        searchTags?.some(searchTag => 
-          doc?.tags?.some(docTag => docTag?.toLowerCase()?.includes(searchTag))
-        )
-      );
-    }
-
-    // Apply sorting
-    filtered?.sort((a, b) => {
-      let aValue = a?.[sortBy];
-      let bValue = b?.[sortBy];
-
-      if (sortBy === 'uploadDate' || sortBy === 'modifiedDate') {
-        aValue = new Date(aValue);
-        bValue = new Date(bValue);
-      } else if (sortBy === 'size') {
-        aValue = parseInt(aValue);
-        bValue = parseInt(bValue);
-      } else if (typeof aValue === 'string') {
-        aValue = aValue?.toLowerCase();
-        bValue = bValue?.toLowerCase();
-      }
-
-      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
+  const handleDeleteOne = async (document) => {
+    const ok = await confirm({
+      title: 'Mettre à la corbeille',
+      description: `« ${document.title} » sera déplacé vers la corbeille (restaurable).`,
+      confirmLabel: 'Mettre à la corbeille',
+      variant: 'danger',
     });
-
-    setFilteredDocuments(filtered);
-  }, [documents, filters, sortBy, sortOrder]);
-
-  const handleLogout = () => {
-    window.location.href = '/login';
-  };
-
-  const handleUpload = () => {
-    window.location.href = '/document-upload';
-  };
-
-  const handleSearch = (query) => {
-    if (!query?.trim()) {
-      setFilteredDocuments(documents);
-      return;
-    }
-
-    const searchResults = documents?.filter(doc =>
-      doc?.name?.toLowerCase()?.includes(query?.toLowerCase()) ||
-      doc?.description?.toLowerCase()?.includes(query?.toLowerCase()) ||
-      doc?.author?.toLowerCase()?.includes(query?.toLowerCase()) ||
-      doc?.tags?.some(tag => tag?.toLowerCase()?.includes(query?.toLowerCase()))
-    );
-
-    setFilteredDocuments(searchResults);
-  };
-
-  const handleBulkAction = async (action, count) => {
-    console.log(`Executing ${action} on ${count} documents`);
-    
-    // Simulate action processing
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Clear selection after action
-    setSelectedDocuments([]);
-    
-    // Show success message (in real app, use toast/notification)
-    alert(`Action "${action}" exécutée sur ${count} document(s)`);
-  };
-
-  const handleSort = (column, order) => {
-    setSortBy(column);
-    setSortOrder(order);
-  };
-
-  const handleDocumentAction = (action, document) => {
-    switch (action) {
-      case 'preview':
-        setPreviewDocument(document);
-        setIsPreviewOpen(true);
-        break;
-      case 'download':
-        console.log('Downloading document:', document?.name);
-        // Simulate download
-        alert(`Téléchargement de "${document?.name}" commencé`);
-        break;
-      case 'share': console.log('Sharing document:', document?.name);
-        alert(`Partage de "${document?.name}" - Fonctionnalité à implémenter`);
-        break;
-      case 'edit': console.log('Editing document metadata:', document?.name);
-        alert(`Modification des métadonnées de "${document?.name}" - Fonctionnalité à implémenter`);
-        break;
-      default:
-        console.log('Unknown action:', action);
+    if (!ok) return;
+    try {
+      await deleteDocument.mutateAsync(document.document_id);
+      toast.success('Document déplacé vers la corbeille.');
+    } catch (error) {
+      toast.error(toAppError(error).message);
     }
   };
 
-  const handleFolderNavigation = (path) => {
-    setCurrentPath(path);
-    // In real app, this would filter documents by folder
-    console.log('Navigating to folder path:', path);
+  const handleRestoreOne = async (document) => {
+    try {
+      await restoreDocument.mutateAsync(document.document_id);
+      toast.success('Document restauré.');
+    } catch (error) {
+      toast.error(toAppError(error).message);
+    }
   };
 
-  const handleFiltersChange = (newFilters) => {
-    setFilters(newFilters);
+  const handleBulk = async (payload) => {
+    const verbs = {
+      delete: 'mettre à la corbeille',
+      restore: 'restaurer',
+      move: 'déplacer',
+      confidentiality: 'changer la confidentialité de',
+    };
+    const ok = await confirm({
+      title: 'Confirmer l’action groupée',
+      description: `Voulez-vous ${verbs[payload.action]} ${payload.ids.length} document(s) ?`,
+      confirmLabel: 'Appliquer',
+      variant: payload.action === 'delete' ? 'danger' : 'default',
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      const result = await bulkDocuments.mutateAsync(payload);
+      setSelected([]);
+      toast.success(`${result.updated.length} document(s) traité(s).`);
+    } catch (error) {
+      toast.error(toAppError(error).message);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleClearFilters = () => {
-    setFilters({});
+  const handleExport = async () => {
+    setBusy(true);
+    try {
+      const name = await documentsApi.exportCsv(query);
+      toast.success(`Export « ${name} » téléchargé.`);
+    } catch (error) {
+      toast.error(toAppError(error).message);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header user={user} onLogout={handleLogout} />
-        <div className="pt-16">
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <Icon name="Loader2" size={48} className="text-primary mx-auto mb-4 animate-spin" />
-              <p className="font-body text-muted-foreground">Chargement de la bibliothèque...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleFolderAction = (mutation, onSuccess) => async (...args) => {
+    try {
+      await mutation(...args);
+      onSuccess?.();
+    } catch (error) {
+      toast.error(toAppError(error).message);
+      throw error;
+    }
+  };
+
+  // Pagination offset (page/pages) ou clé (has_more/next_cursor)
+  const isKeyset = query.pagination === 'keyset';
+  const totalPages = data?.pages || 1;
+  const currentPage = data?.page || view.page || 1;
+  const hasMore = isKeyset ? Boolean(data?.has_more) : currentPage < totalPages;
+
+  const goToPage = (page) => patchView({ page });
+  const goNextKeyset = () =>
+    patchView({ cursor: data?.next_cursor || null, page: (view.page || 1) + 1 });
+
+  const activeFilters = countActiveFilters(view);
+  const resultsLabel = data
+    ? `${data.total ?? data.items?.length ?? 0} document${
+        (data.total ?? 0) > 1 ? 's' : ''
+      }${activeFilters ? ' trouvé(s)' : ''}`
+    : 'Chargement…';
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user} onLogout={handleLogout} />
+      <Header user={headerUser} onLogout={handleLogout} />
       <div className="pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Breadcrumb */}
           <Breadcrumb />
-          
-          {/* Page Header */}
+
+          {/* En-tête */}
+          <div className="mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-heading font-bold text-foreground">
+                Bibliothèque de documents
+              </h1>
+              <p className="font-body text-muted-foreground mt-2">
+                {isDeletedView
+                  ? 'Documents de la corbeille : restaurez-les ou supprimez-les définitivement.'
+                  : 'Parcourez, filtrez et gérez les archives universitaires.'}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                iconName="Download"
+                iconPosition="left"
+                onClick={handleExport}
+                disabled={busy}
+                className="font-body"
+              >
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                iconName="Grid3X3"
+                iconPosition="left"
+                onClick={() => patchView({ pagination: isKeyset ? null : 'keyset', page: 1, cursor: null })}
+                title="Basculer entre pagination par page et pagination par clé"
+                className="font-body"
+              >
+                {isKeyset ? 'Pagination clé' : 'Pagination par page'}
+              </Button>
+              <Button
+                variant="default"
+                iconName="Upload"
+                iconPosition="left"
+                onClick={() => navigate('/document-upload')}
+                className="font-body"
+              >
+                Télécharger
+              </Button>
+            </div>
+          </div>
+
+          {/* Dossiers */}
           <div className="mb-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-              <div>
-                <h1 className="text-3xl font-heading font-bold text-foreground">
-                  Bibliothèque de documents
-                </h1>
-                <p className="font-body text-muted-foreground mt-2">
-                  Parcourez, recherchez et gérez tous vos documents universitaires
-                </p>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <Button
-                  variant="outline"
-                  iconName="ScanLine"
-                  iconPosition="left"
-                  className="font-body"
-                >
-                  Scanner
-                </Button>
+            <FolderNavigation
+              tree={treeQuery.data || []}
+              path={pathQuery.data || []}
+              currentFolderId={view.folder_id}
+              canWrite={canWriteFolders}
+              canManage={canManageFolders}
+              onSelect={(folderId) => patchView({ folder_id: folderId, page: 1, cursor: null })}
+              onCreate={handleFolderAction((payload) => createFolder.mutateAsync(payload))}
+              onRename={(folderId, payload) =>
+                handleFolderAction((id, body) => updateFolder.mutateAsync({ folderId: id, payload: body }))(
+                  folderId,
+                  payload
+                )
+              }
+              onDelete={handleFolderAction((folderId) => deleteFolder.mutateAsync(folderId))}
+            />
+          </div>
+
+          {/* Filtres */}
+          <div className="mb-6">
+            <DocumentFilters
+              filters={view}
+              onChange={(patch) => patchView({ ...patch, cursor: null })}
+              onClear={() =>
+                patchView({
+                  q: null,
+                  department_id: null,
+                  doc_type_id: null,
+                  confidentiality: null,
+                  tag_ids: null,
+                  created_from: null,
+                  created_to: null,
+                  page: 1,
+                  cursor: null,
+                })
+              }
+              docTypes={docTypesQuery.data || []}
+              departments={departmentsQuery.data || []}
+              tags={tagsQuery.data || []}
+              resultsLabel={resultsLabel}
+            />
+          </div>
+
+          {/* Tableau */}
+          <DocumentTable
+            documents={documents}
+            isLoading={documentsQuery.isLoading}
+            selected={selected}
+            onToggle={handleToggle}
+            onToggleAll={handleToggleAll}
+            onOpen={handleOpen}
+            onPreview={setPreviewDocument}
+            onSort={handleSort}
+            sort={view.sort || 'created_at'}
+            order={view.order || 'desc'}
+            canEdit={canWriteFolders}
+            canDelete={canDeleteDocuments}
+            isDeletedView={isDeletedView}
+            onRestore={handleRestoreOne}
+            onDelete={handleDeleteOne}
+            emptyTitle={isDeletedView ? 'Corbeille vide' : 'Aucun document'}
+            emptyDescription={
+              isDeletedView
+                ? 'Aucun document dans la corbeille.'
+                : 'Aucun document ne correspond aux critères de recherche.'
+            }
+            emptyAction={
+              !isDeletedView && activeFilters === 0 ? (
                 <Button
                   variant="default"
                   iconName="Upload"
                   iconPosition="left"
-                  onClick={handleUpload}
+                  onClick={() => navigate('/document-upload')}
+                >
+                  Déposer un premier document
+                </Button>
+              ) : null
+            }
+          />
+
+          {/* Pagination */}
+          {documents.length > 0 && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground font-body">
+                {isKeyset
+                  ? `Page ${currentPage}`
+                  : `Page ${currentPage} sur ${totalPages} — ${data?.total ?? 0} résultat(s)`}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  iconName="ArrowLeft"
+                  iconPosition="left"
+                  disabled={currentPage <= 1}
+                  onClick={() =>
+                    isKeyset ? patchView({ page: currentPage - 1 }) : goToPage(currentPage - 1)
+                  }
                   className="font-body"
                 >
-                  Télécharger
+                  Précédent
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  iconName="ChevronRight"
+                  iconPosition="right"
+                  disabled={!hasMore || (isKeyset && !data?.next_cursor)}
+                  onClick={() => (isKeyset ? goNextKeyset() : goToPage(currentPage + 1))}
+                  className="font-body"
+                >
+                  Suivant
                 </Button>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Folder Navigation */}
-          <div className="mb-6">
-            <FolderNavigation
-              currentPath={currentPath}
-              onNavigate={handleFolderNavigation}
-              folders={folders}
-            />
-          </div>
-
-          {/* Filters */}
-          <div className="mb-6">
-            <DocumentFilters
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              onClearFilters={handleClearFilters}
-              resultsCount={filteredDocuments?.length}
-            />
-          </div>
-
-          {/* Action Toolbar */}
-          <div className="mb-6">
-            <DocumentActionToolbar
-              onUpload={handleUpload}
-              onSearch={handleSearch}
-              onBulkAction={handleBulkAction}
-              selectedCount={selectedDocuments?.length}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              sortBy={sortBy}
-              onSortChange={(value) => handleSort(value, sortOrder)}
-              showBulkActions={selectedDocuments?.length > 0}
-            />
-          </div>
-
-          {/* Document Table/Grid */}
-          <DocumentTable
-            documents={filteredDocuments}
-            selectedDocuments={selectedDocuments}
-            onDocumentSelect={setSelectedDocuments}
-            onDocumentAction={handleDocumentAction}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onSort={handleSort}
-            viewMode={viewMode}
-          />
-
-          {/* Bulk Action Bar */}
-          <BulkActionBar
-            selectedCount={selectedDocuments?.length}
-            onBulkAction={handleBulkAction}
-            onClearSelection={() => setSelectedDocuments([])}
-          />
-
-          {/* Document Preview Modal */}
+          {/* Aperçu */}
           <DocumentPreviewModal
             document={previewDocument}
-            isOpen={isPreviewOpen}
-            onClose={() => {
-              setIsPreviewOpen(false);
+            isOpen={Boolean(previewDocument)}
+            onClose={() => setPreviewDocument(null)}
+            onDownload={handleDownload}
+            onOpenDetail={(doc) => {
               setPreviewDocument(null);
+              handleOpen(doc);
             }}
-            onDownload={(doc) => handleDocumentAction('download', doc)}
-            onShare={(doc) => handleDocumentAction('share', doc)}
-            onEdit={(doc) => handleDocumentAction('edit', doc)}
           />
         </div>
       </div>
+
+      {/* Actions groupées */}
+      <BulkActionBar
+        selected={selected}
+        isDeletedView={isDeletedView}
+        folders={treeQuery.data || []}
+        onClear={() => setSelected([])}
+        onApply={handleBulk}
+        busy={busy}
+      />
     </div>
   );
 };

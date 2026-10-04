@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Breadcrumb from '../../components/ui/Breadcrumb';
 import SearchForm from './components/SearchForm';
@@ -9,6 +10,7 @@ import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 
 const AdvancedSearch = () => {
+  const navigate = useNavigate();
   const [user] = useState({
     id: 1,
     name: "Ibrahim",
@@ -84,7 +86,7 @@ const AdvancedSearch = () => {
         size: "1.8 MB",
         confidentiality: "Interne",
         relevanceScore: 87,
-        snippet: "Ce rapport présente les activités réalisées lors du stage de développement web au sein de l\'entreprise TechCorp...",
+        snippet: "Ce rapport présente les activités réalisées lors du stage de développement web au sein de l'entreprise TechCorp...",
         tags: ["Stage", "Développement", "Web"],
         thumbnail: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&h=140&fit=crop",
         hasAccess: true
@@ -132,7 +134,7 @@ const AdvancedSearch = () => {
   };
 
   const handleSortResults = (sortBy) => {
-    const sortedResults = [...searchState?.results]?.sort((a, b) => {
+    const sortedResults = [...(searchState?.results || [])]?.sort((a, b) => {
       switch (sortBy) {
         case 'name':
           return a?.title?.localeCompare(b?.title);
@@ -171,7 +173,7 @@ const AdvancedSearch = () => {
   };
 
   const handleLogout = () => {
-    window.location.href = '/login';
+    navigate('/login');
   };
 
   return (
@@ -323,7 +325,7 @@ const AdvancedSearch = () => {
                 iconName="Upload"
                 iconPosition="left"
                 iconSize={16}
-                onClick={() => window.location.href = '/document-upload'}
+                onClick={() => navigate('/document-upload')}
                 fullWidth
                 className="font-body"
               >
@@ -334,7 +336,7 @@ const AdvancedSearch = () => {
                 iconName="FolderOpen"
                 iconPosition="left"
                 iconSize={16}
-                onClick={() => window.location.href = '/document-library'}
+                onClick={() => navigate('/document-library')}
                 fullWidth
                 className="font-body"
               >
@@ -345,7 +347,7 @@ const AdvancedSearch = () => {
                 iconName="BarChart3"
                 iconPosition="left"
                 iconSize={16}
-                onClick={() => window.location.href = '/dashboard'}
+                onClick={() => navigate('/dashboard')}
                 fullWidth
                 className="font-body"
               >

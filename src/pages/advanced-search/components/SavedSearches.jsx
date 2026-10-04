@@ -3,8 +3,10 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import { Checkbox } from '../../../components/ui/Checkbox';
 import Icon from '../../../components/AppIcon';
+import { useConfirm } from '../../../components/ui/useConfirm';
 
 const SavedSearches = ({ onLoadSearch, onDeleteSearch }) => {
+  const confirm = useConfirm();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [searchName, setSearchName] = useState('');
@@ -70,8 +72,13 @@ const SavedSearches = ({ onLoadSearch, onDeleteSearch }) => {
     onLoadSearch && onLoadSearch(search?.criteria);
   };
 
-  const handleDeleteSearch = (searchId) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette recherche sauvegardée ?')) {
+  const handleDeleteSearch = async (searchId) => {
+    const confirmed = await confirm({
+      title: 'Supprimer la recherche sauvegardée',
+      description: 'Êtes-vous sûr de vouloir supprimer cette recherche sauvegardée ?',
+      confirmLabel: 'Supprimer',
+    });
+    if (confirmed) {
       onDeleteSearch && onDeleteSearch(searchId);
     }
   };
@@ -215,7 +222,7 @@ const SavedSearches = ({ onLoadSearch, onDeleteSearch }) => {
       )}
       {/* Save Search Dialog */}
       {showSaveDialog && (
-        <div className="fixed inset-0 bg-black/60 bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg shadow-modal w-full max-w-md mx-4">
             <div className="p-6 border-b border-border">
               <div className="flex items-center justify-between">

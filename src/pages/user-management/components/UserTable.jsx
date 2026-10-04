@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import { Checkbox } from '../../../components/ui/Checkbox';
@@ -15,8 +15,6 @@ const UserTable = ({
   sortOrder = 'asc',
   onSort = () => {}
 }) => {
-  const [hoveredRow, setHoveredRow] = useState(null);
-
   const handleSort = (column) => {
     const newOrder = sortBy === column && sortOrder === 'asc' ? 'desc' : 'asc';
     onSort(column, newOrder);
@@ -121,8 +119,6 @@ const UserTable = ({
                 className={`border-b border-border hover:bg-muted/50 transition-colors duration-200 ${
                   selectedUsers?.includes(user?.id) ? 'bg-accent/10' : ''
                 }`}
-                onMouseEnter={() => setHoveredRow(user?.id)}
-                onMouseLeave={() => setHoveredRow(null)}
               >
                 <td className="p-4">
                   <Checkbox
@@ -133,7 +129,7 @@ const UserTable = ({
                 <td className="p-4">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-                      <Icon name="User" size={16} color="white" />
+                      <Icon name="User" size={16} className="text-secondary-foreground" />
                     </div>
                     <div>
                       <p className="font-body font-medium text-foreground">{user?.name}</p>
@@ -213,7 +209,7 @@ const UserTable = ({
                   onChange={() => onSelectUser(user?.id)}
                 />
                 <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
-                  <Icon name="User" size={18} color="white" />
+                  <Icon name="User" size={18} className="text-secondary-foreground" />
                 </div>
                 <div>
                   <p className="font-body font-medium text-foreground">{user?.name}</p>
