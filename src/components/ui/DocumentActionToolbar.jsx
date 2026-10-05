@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from './Button';
 import Icon from '../AppIcon';
 import Select from './Select';
@@ -17,6 +18,7 @@ const DocumentActionToolbar = ({
   showSort = true,
   className = ''
 }) => {
+  const navigate = useNavigate();
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -118,7 +120,7 @@ const DocumentActionToolbar = ({
             iconName="Filter"
             iconPosition="left"
             iconSize={16}
-            onClick={() => window.location.href = '/advanced-search'}
+            onClick={() => navigate('/advanced-search')}
             className="font-body text-muted-foreground"
           >
             Recherche avancée

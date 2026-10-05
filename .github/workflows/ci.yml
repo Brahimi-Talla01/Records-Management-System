@@ -1,0 +1,38 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [master, main, test]
+  pull_request:
+    branches: [master, main, test]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint (0 erreur)
+        run: npm run lint
+
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Tests (Vitest + MSW)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Budget de bundle (size-limit)
+        run: npm run size

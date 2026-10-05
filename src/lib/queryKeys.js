@@ -1,0 +1,105 @@
+/**
+ * Clés de cache TanStack Query, centralisées par domaine.
+ * Une clé écrite à la main dans une page est une source de désynchronisation :
+ * on importe toujours depuis ici.
+ */
+export const authKeys = {
+  all: ['auth'],
+  me: ['auth', 'me'],
+  sessions: ['auth', 'sessions'],
+  securityAlerts: ['auth', 'security-alerts'],
+};
+
+export const usersKeys = {
+  all: ['users'],
+  list: (params) => ['users', 'list', params],
+  detail: (id) => ['users', 'detail', id],
+  statistics: ['users', 'statistics'],
+  roles: ['users', 'roles'],
+  departments: ['users', 'departments'],
+};
+
+export const documentsKeys = {
+  all: ['documents'],
+  list: (params) => ['documents', 'list', params],
+  detail: (id) => ['documents', 'detail', id],
+  versions: (id) => ['documents', id, 'versions'],
+  permissions: (id) => ['documents', id, 'permissions'],
+};
+
+export const foldersKeys = {
+  all: ['folders'],
+  tree: (params) => ['folders', 'tree', params],
+  path: (id) => ['folders', id, 'path'],
+};
+
+export const referentialsKeys = {
+  all: ['referentials'],
+  docTypes: ['referentials', 'doc-types'],
+  tags: ['referentials', 'tags'],
+  departments: ['referentials', 'departments'],
+  roles: ['referentials', 'roles'],
+};
+
+export const searchKeys = {
+  all: ['search'],
+  results: (params) => ['search', 'results', params],
+  history: (params) => ['search', 'history', params],
+  saved: ['search', 'saved'],
+};
+
+export const dashboardKeys = {
+  summary: ['dashboard', 'summary'],
+  activity: (params) => ['dashboard', 'activity', params],
+  expiring: (params) => ['dashboard', 'expiring', params],
+  uploads: (params) => ['dashboard', 'uploads', params],
+  recent: ['dashboard', 'recent-documents'],
+};
+
+export const notificationsKeys = {
+  all: ['notifications'],
+  list: (params) => ['notifications', 'list', params],
+  unreadCount: ['notifications', 'unread-count'],
+};
+
+export const campusesKeys = {
+  all: ['campuses'],
+  list: (params) => ['campuses', 'list', params],
+  detail: (id) => ['campuses', 'detail', id],
+};
+
+export const settingsKeys = {
+  all: ['settings'],
+  schema: ['settings', 'schema'],
+  values: (campusId) => ['settings', 'values', campusId ?? null],
+  defaults: ['settings', 'defaults'],
+  public: ['settings', 'public'],
+};
+
+export const institutionKeys = {
+  all: ['institution'],
+  profile: ['institution', 'profile'],
+};
+
+export const auditKeys = {
+  all: ['audit'],
+  list: (params) => ['audit', 'list', params],
+};
+
+export const retentionKeys = {
+  all: ['retention'],
+  status: (campusId) => ['retention', 'status', campusId ?? null],
+  reports: (params) => ['retention', 'reports', params],
+};
+
+export const permissionsKeys = {
+  all: ['permissions'],
+  documentGrants: (id) => ['permissions', 'document', id, 'grants'],
+  folderGrants: (id) => ['permissions', 'folder', id, 'grants'],
+};
+
+export const systemKeys = {
+  all: ['system'],
+  readiness: ['system', 'readiness'],
+  version: ['system', 'version'],
+};

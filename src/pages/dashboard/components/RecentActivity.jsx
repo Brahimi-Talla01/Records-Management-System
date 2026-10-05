@@ -1,105 +1,44 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import { Badge } from '../../../components/ui/Badge';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { Skeleton } from '../../../components/ui/Skeleton';
+import { getAuditActionMeta, formatRelativeTime } from '../../../lib/formatters';
 
-const RecentActivity = ({ userRole, activities = [] }) => {
-  const mockActivities = [
-    {
-      id: 1,
-      type: 'upload',
-      title: 'Document téléchargé',
-      description: 'Rapport_Annuel_2024.pdf a été ajouté',
-      user: 'Marie Dubois',
-      timestamp: new Date(Date.now() - 300000),
-      icon: 'Upload',
-      color: 'bg-green-500'
-    },
-    {
-      id: 2,
-      type: 'access',
-      title: 'Document consulté',
-      description: 'Thèse_Intelligence_Artificielle.pdf',
-      user: 'Jean Martin',
-      timestamp: new Date(Date.now() - 900000),
-      icon: 'Eye',
-      color: 'bg-blue-500'
-    },
-    {
-      id: 3,
-      type: 'approval',
-      title: 'Approbation requise',
-      description: 'Modification du document Règlement_Intérieur.pdf',
-      user: 'Sophie Laurent',
-      timestamp: new Date(Date.now() - 1800000),
-      icon: 'AlertCircle',
-      color: 'bg-orange-500'
-    },
-    {
-      id: 4,
-      type: 'share',
-      title: 'Document partagé',
-      description: 'Cours_Mathématiques_L1.pdf partagé avec Département Math',
-      user: 'Pierre Durand',
-      timestamp: new Date(Date.now() - 3600000),
-      icon: 'Share2',
-      color: 'bg-purple-500'
-    },
-    {
-      id: 5,
-      type: 'delete',
-      title: 'Document archivé',
-      description: 'Ancien_Syllabus_2023.pdf déplacé vers les archives',
-      user: 'Admin Système',
-      timestamp: new Date(Date.now() - 7200000),
-      icon: 'Archive',
-      color: 'bg-gray-500'
-    },
-    {
-      id: 6,
-      type: 'scan',
-      title: 'Document numérisé',
-      description: 'Formulaire_Inscription_Manuscrit.pdf créé',
-      user: 'Secrétariat',
-      timestamp: new Date(Date.now() - 10800000),
-      icon: 'Scan',
-      color: 'bg-indigo-500'
-    }
-  ];
+/** Classe token de la pastille d'icône selon la nature de l'action. */
+function toneForAction(action = '') {
+  if (/(deleted|purged|denied|failed|revoked)/.test(action)) return 'bg-error text-error-foreground';
+  if (/(created|uploaded|granted|restored|enabled|success)/.test(action)) {
+    return 'bg-success text-success-foreground';
+  }
+  if (/(updated|moved|archived|warning|changed)/.test(action)) {
+    return 'bg-warning text-warning-foreground';
+  }
+  return 'bg-info text-info-foreground';
+}
 
-  const displayActivities = activities?.length > 0 ? activities : mockActivities;
+/** Description lisible : titre du document si présent, sinon objet#id. */
+function describeEntry(entry) {
+  const details = entry?.details;
+  if (details && typeof details === 'object') {
+    if (details.title) return details.title;
+    if (details.query) return `« ${details.query} »`;
+  }
+  if (entry?.object_type) {
+    return `${entry.object_type}${entry.object_id ? ` #${entry.object_id}` : ''}`;
+  }
+  return '—';
+}
 
-  const formatTimestamp = (timestamp) => {
-    const now = new Date();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return 'À l\'instant';
-    if (minutes < 60) return `Il y a ${minutes} min`;
-    if (hours < 24) return `Il y a ${hours}h`;
-    if (days < 7) return `Il y a ${days}j`;
-    
-    return timestamp?.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const getActivityTypeLabel = (type) => {
-    const labels = {
-      upload: 'Téléchargement',
-      access: 'Consultation',
-      approval: 'Approbation',
-      share: 'Partage',
-      delete: 'Archivage',
-      scan: 'Numérisation',
-      edit: 'Modification',
-      download: 'Téléchargement'
-    };
-    return labels?.[type] || 'Activité';
-  };
+/**
+ * Fil d'activité alimenté par `GET /dashboard/activity` (journal d'audit borné
+ * au périmètre du rôle). Les actions techniques sont traduites par
+ * `getAuditActionMeta`, jamais affichées brutes.
+ */
+const RecentActivity = ({ activities = [], isLoading = false, showViewAll = false }) => {
+  const navigate = useNavigate();
 
   return (
     <div className="bg-card border border-border rounded-lg shadow-card">
@@ -107,77 +46,90 @@ const RecentActivity = ({ userRole, activities = [] }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-              <Icon name="Activity" size={18} color="white" />
+              <Icon name="Activity" size={18} className="text-accent-foreground" />
             </div>
-            <h2 className="text-lg font-heading font-semibold text-foreground">Activité Récente</h2>
+            <h2 className="text-lg font-heading font-semibold text-foreground">Activité récente</h2>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            iconName="ExternalLink"
-            iconPosition="right"
-            iconSize={14}
-            onClick={() => window.location.href = '/activity-log'}
-            className="text-muted-foreground hover:text-foreground font-body"
-          >
-            Voir tout
-          </Button>
+          {showViewAll && (
+            <Button
+              variant="ghost"
+              size="sm"
+              iconName="ExternalLink"
+              iconPosition="right"
+              iconSize={14}
+              onClick={() => navigate('/user-management')}
+              className="text-muted-foreground hover:text-foreground font-body"
+            >
+              Voir tout
+            </Button>
+          )}
         </div>
       </div>
-      <div className="max-h-96 overflow-y-auto">
-        {displayActivities?.slice(0, 8)?.map((activity, index) => (
-          <div 
-            key={activity?.id} 
-            className={`p-4 hover:bg-muted transition-colors duration-200 ${
-              index !== displayActivities?.slice(0, 8)?.length - 1 ? 'border-b border-border' : ''
-            }`}
-          >
-            <div className="flex items-start space-x-4">
-              <div className={`w-10 h-10 ${activity?.color} rounded-full flex items-center justify-center flex-shrink-0`}>
-                <Icon name={activity?.icon} size={16} color="white" />
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="text-sm font-body font-medium text-foreground truncate">
-                    {activity?.title}
-                  </h4>
-                  <span className="text-xs text-muted-foreground font-caption flex-shrink-0 ml-2">
-                    {formatTimestamp(activity?.timestamp)}
-                  </span>
-                </div>
-                
-                <p className="text-sm text-muted-foreground font-body mb-2 line-clamp-2">
-                  {activity?.description}
-                </p>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-caption">
-                    Par {activity?.user}
-                  </span>
-                  <span className={`text-xs px-2 py-1 rounded-full font-caption ${
-                    activity?.type === 'approval' ? 'bg-orange-100 text-orange-800' :
-                    activity?.type === 'upload' ? 'bg-green-100 text-green-800' :
-                    activity?.type === 'access' ? 'bg-blue-100 text-blue-800' :
-                    activity?.type === 'share'? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {getActivityTypeLabel(activity?.type)}
-                  </span>
-                </div>
+
+      {isLoading ? (
+        <div className="p-6 space-y-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="flex items-start space-x-4">
+              <Skeleton className="w-10 h-10 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/2" />
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-      {displayActivities?.length === 0 && (
-        <div className="p-8 text-center">
-          <Icon name="Clock" size={48} className="text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-heading font-medium text-foreground mb-2">
-            Aucune activité récente
-          </h3>
-          <p className="text-muted-foreground font-body">
-            Les activités récentes apparaîtront ici
-          </p>
+          ))}
+        </div>
+      ) : activities.length === 0 ? (
+        <EmptyState
+          icon="Clock"
+          title="Aucune activité récente"
+          description="Les actions réalisées sur votre périmètre apparaîtront ici."
+        />
+      ) : (
+        <div className="max-h-96 overflow-y-auto">
+          {activities.slice(0, 8).map((activity, index) => {
+            const meta = getAuditActionMeta(activity?.action);
+            const author = activity?.user?.full_name || activity?.user?.username;
+            return (
+              <div
+                key={activity?.audit_id ?? index}
+                className={`p-4 hover:bg-muted transition-colors duration-200 ${
+                  index !== Math.min(activities.length, 8) - 1 ? 'border-b border-border' : ''
+                }`}
+              >
+                <div className="flex items-start space-x-4">
+                  <div
+                    className={`w-10 h-10 ${toneForAction(activity?.action)} rounded-full flex items-center justify-center flex-shrink-0`}
+                  >
+                    <Icon name={meta.icon} size={16} />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="text-sm font-body font-medium text-foreground truncate">
+                        {meta.label}
+                      </h4>
+                      <span className="text-xs text-muted-foreground font-caption flex-shrink-0 ml-2">
+                        {formatRelativeTime(activity?.created_at)}
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground font-body mb-2 line-clamp-2">
+                      {describeEntry(activity)}
+                    </p>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground font-caption">
+                        Par {author || 'Système'}
+                      </span>
+                      <Badge variant="neutral" className="font-caption">
+                        {activity?.object_type || 'audit'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

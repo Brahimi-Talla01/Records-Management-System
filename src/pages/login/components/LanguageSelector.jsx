@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Select from '../../../components/ui/Select';
 import Icon from '../../../components/AppIcon';
 
@@ -14,13 +14,6 @@ const LanguageSelector = ({ currentLanguage = 'fr', onLanguageChange }) => {
     localStorage.setItem('preferred-language', selectedLanguage);
     onLanguageChange(selectedLanguage);
   };
-
-  const formatOption = (option) => (
-    <div className="flex items-center space-x-2">
-      <span className="text-lg">{option?.flag}</span>
-      <span className="font-body">{option?.label}</span>
-    </div>
-  );
 
   return (
     <div className="flex items-center space-x-2">

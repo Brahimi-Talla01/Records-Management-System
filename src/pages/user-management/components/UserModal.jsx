@@ -1,271 +1,245 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import { Checkbox } from '../../../components/ui/Checkbox';
+import Modal from '../../../components/ui/Modal';
 import Icon from '../../../components/AppIcon';
+import { passwordSchema } from '../../../lib/validate';
+
+/**
+ * Formulaire de compte (F6.5) — miroir du contrat `POST/PUT /users` :
+ * `matricule`, `username`, `role_id` requis ; `password` optionnel à la
+ * création (défaut serveur `ChangeMe@123`) ; `campus_id` implicite
+ * (hérité du créateur) sauf pour un super admin (règle Q2 backend).
+ */
+const EMPTY_FORM = {
+  matricule: '',
+  username: '',
+  full_name: '',
+  email: '',
+  role_id: '',
+  department_id: '',
+  campus_id: '',
+  password: '',
+  is_active: true,
+};
 
 const UserModal = ({
   isOpen = false,
   onClose = () => {},
-  onSave = () => {},
+  onSubmit,
   user = null,
-  mode = 'add' // 'add', 'edit'
+  roles = [],
+  departments = [],
+  campuses = [],
+  canSelectCampus = false,
+  isPending = false,
 }) => {
-
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    role: 'student',
-    department: '',
-    status: 'active',
-    sendWelcomeEmail: true,
-    requirePasswordChange: true
-  });
-
+  const isEdit = Boolean(user);
+  const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (user && mode === 'edit') {
-      setFormData({
-        name: user?.name || '',
-        email: user?.email || '',
-        role: user?.role || 'student',
-        department: user?.department || '',
-        status: user?.status || 'active',
-        sendWelcomeEmail: false,
-        requirePasswordChange: false
+    if (!isOpen) return;
+    setErrors({});
+    if (isEdit) {
+      setForm({
+        matricule: user.matricule || '',
+        username: user.username || '',
+        full_name: user.full_name || '',
+        email: user.email || '',
+        role_id: user.role?.role_id ? String(user.role.role_id) : '',
+        department_id: user.department?.department_id
+          ? String(user.department.department_id)
+          : '',
+        campus_id: user.campus_id ? String(user.campus_id) : '',
+        password: '', // jamais réécrit : la réinitialisation est dédiée
+        is_active: user.is_active ?? true,
       });
     } else {
-      setFormData({
-        name: '',
-        email: '',
-        role: 'student',
-        department: '',
-        status: 'active',
-        sendWelcomeEmail: true,
-        requirePasswordChange: true
-      });
+      setForm(EMPTY_FORM);
     }
-    setErrors({});
-  }, [user, mode, isOpen]);
+  }, [isOpen, isEdit, user]);
+
+  const updateField = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  const validate = () => {
+    const next = {};
+    if (!form.matricule.trim()) next.matricule = 'Le matricule est requis';
+    if (!form.username.trim()) next.username = "Le nom d'utilisateur est requis";
+    if (!form.role_id) next.role_id = 'Le rôle est requis';
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      next.email = "Format d'email invalide";
+    }
+    if (!isEdit && form.password) {
+      const parsed = passwordSchema.safeParse(form.password);
+      if (!parsed.success) {
+        next.password = parsed.error.issues[0]?.message || 'Mot de passe trop faible';
+      }
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (!validate()) return;
+
+    const payload = {
+      matricule: form.matricule.trim(),
+      username: form.username.trim(),
+      full_name: form.full_name.trim() || null,
+      email: form.email.trim() || null,
+      role_id: Number(form.role_id),
+      department_id: form.department_id ? Number(form.department_id) : null,
+      is_active: form.is_active,
+    };
+    if (!isEdit) {
+      if (form.password) payload.password = form.password;
+      if (canSelectCampus && form.campus_id) payload.campus_id = Number(form.campus_id);
+    }
+    onSubmit(payload);
+  };
 
   const roleOptions = [
-    { value: 'student', label: 'Étudiant' },
-    { value: 'teacher', label: 'Enseignant' },
-    { value: 'admin', label: 'Administrateur' }
+    { value: '', label: 'Sélectionner un rôle…' },
+    ...roles.map((role) => ({ value: String(role.role_id), label: role.name })),
   ];
-
   const departmentOptions = [
-    { value: 'informatique', label: 'Informatique' },
-    { value: 'mathematiques', label: 'Mathématiques' },
-    { value: 'physique', label: 'Physique' },
-    { value: 'chimie', label: 'Chimie' },
-    { value: 'biologie', label: 'Biologie' },
-    { value: 'litterature', label: 'Littérature' },
-    { value: 'histoire', label: 'Histoire' },
-    { value: 'economie', label: 'Économie' },
-    { value: 'droit', label: 'Droit' },
-    { value: 'medecine', label: 'Médecine' },
-    { value: 'administration', label: 'Administration' }
+    { value: '', label: 'Aucun département' },
+    ...departments.map((department) => ({
+      value: String(department.department_id),
+      label: department.name || department.code || `#${department.department_id}`,
+    })),
   ];
-
-  const statusOptions = [
-    { value: 'active', label: 'Actif' },
-    { value: 'inactive', label: 'Inactif' },
-    { value: 'suspended', label: 'Suspendu' },
-    { value: 'pending', label: 'En attente' }
+  const campusOptions = [
+    { value: '', label: 'Global (tous les campus)' },
+    ...campuses.map((campus) => ({
+      value: String(campus.campus_id),
+      label: `${campus.name} (${campus.code})`,
+    })),
   ];
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors?.[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData?.name?.trim()) {
-      newErrors.name = 'Le nom est requis';
-    }
-
-    if (!formData?.email?.trim()) {
-      newErrors.email = 'L\'email est requis';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/?.test(formData?.email)) {
-      newErrors.email = 'Format d\'email invalide';
-    }
-
-    if (!formData?.department) {
-      newErrors.department = 'Le département est requis';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors)?.length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e?.preventDefault();
-    
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    try {
-      await onSave(formData);
-      onClose();
-    } catch (error) {
-      console.error('Error saving user:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center">
-      {/* Overlay */}
-      <div 
-        className="absolute inset-0 bg-black/60 bg-opacity-50"
-        onClick={onClose}
-      />
-      {/* Modal */}
-      <div className="relative bg-card border border-border rounded-lg shadow-modal w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Icon name={mode === 'add' ? 'UserPlus' : 'Edit'} size={16} color="white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-heading font-semibold text-foreground">
-                {mode === 'add' ? 'Ajouter un utilisateur' : 'Modifier l\'utilisateur'}
-              </h2>
-              <p className="text-sm text-muted-foreground font-body">
-                {mode === 'add' ?'Créer un nouveau compte utilisateur' :'Modifier les informations de l\'utilisateur'
-                }
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-          >
-            <Icon name="X" size={20} />
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="lg"
+      title={isEdit ? 'Modifier le compte' : 'Nouveau compte utilisateur'}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Annuler
           </Button>
+          <Button
+            variant="default"
+            iconName={isEdit ? 'Save' : 'UserPlus'}
+            iconPosition="left"
+            loading={isPending}
+            onClick={handleSubmit}
+          >
+            {isEdit ? 'Enregistrer' : 'Créer le compte'}
+          </Button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Matricule"
+            value={form.matricule}
+            onChange={(event) => updateField('matricule', event.target.value)}
+            error={errors.matricule}
+            placeholder="ETU2026-001"
+            required
+          />
+          <Input
+            label="Nom d'utilisateur"
+            value={form.username}
+            onChange={(event) => updateField('username', event.target.value)}
+            error={errors.username}
+            placeholder="prenom.nom"
+            required
+          />
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Basic Information */}
-          <div className="space-y-4">
-            <h3 className="text-md font-heading font-medium text-foreground">
-              Informations de base
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Nom complet"
-                type="text"
-                value={formData?.name}
-                onChange={(e) => handleInputChange('name', e?.target?.value)}
-                error={errors?.name}
-                required
-                placeholder="Entrez le nom complet"
-              />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Nom complet"
+            value={form.full_name}
+            onChange={(event) => updateField('full_name', event.target.value)}
+            placeholder="Prénom Nom"
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={(event) => updateField('email', event.target.value)}
+            error={errors.email}
+            placeholder="utilisateur@universite.cm"
+          />
+        </div>
 
-              <Input
-                label="Adresse email"
-                type="email"
-                value={formData?.email}
-                onChange={(e) => handleInputChange('email', e?.target?.value)}
-                error={errors?.email}
-                required
-                placeholder="utilisateur@universite.fr"
-              />
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="Rôle"
+            options={roleOptions}
+            value={form.role_id}
+            onChange={(value) => updateField('role_id', value)}
+            error={errors.role_id}
+            required
+          />
+          <Select
+            label="Département"
+            options={departmentOptions}
+            value={form.department_id}
+            onChange={(value) => updateField('department_id', value)}
+            searchable
+          />
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
-                label="Rôle"
-                options={roleOptions}
-                value={formData?.role}
-                onChange={(value) => handleInputChange('role', value)}
-                required
-              />
+        {/* Règle Q2 backend : campus implicite (hérité du créateur), sauf
+            super admin qui choisit explicitement (ou laisse global). */}
+        {canSelectCampus && !isEdit && (
+          <Select
+            label="Campus"
+            description="Laisser vide pour un compte global. Sinon, hérité de votre campus."
+            options={campusOptions}
+            value={form.campus_id}
+            onChange={(value) => updateField('campus_id', value)}
+          />
+        )}
 
-              <Select
-                label="Département"
-                options={departmentOptions}
-                value={formData?.department}
-                onChange={(value) => handleInputChange('department', value)}
-                error={errors?.department}
-                required
-                searchable
-              />
-            </div>
+        {!isEdit && (
+          <Input
+            label="Mot de passe initial"
+            type="password"
+            value={form.password}
+            onChange={(event) => updateField('password', event.target.value)}
+            error={errors.password}
+            description="Optionnel — sinon le serveur pose un mot de passe temporaire à communiquer au compte."
+            autoComplete="new-password"
+          />
+        )}
 
-            <Select
-              label="Statut du compte"
-              options={statusOptions}
-              value={formData?.status}
-              onChange={(value) => handleInputChange('status', value)}
-              required
-            />
-          </div>
+        <Checkbox
+          label="Compte actif"
+          checked={form.is_active}
+          onChange={(event) => updateField('is_active', event.target.checked)}
+        />
 
-          {/* Options */}
-          {mode === 'add' && (
-            <div className="space-y-4">
-              <h3 className="text-md font-heading font-medium text-foreground">
-                Options de création
-              </h3>
-              
-              <div className="space-y-3">
-                <Checkbox
-                  label="Envoyer un email de bienvenue"
-                  description="L'utilisateur recevra un email avec ses informations de connexion"
-                  checked={formData?.sendWelcomeEmail}
-                  onChange={(e) => handleInputChange('sendWelcomeEmail', e?.target?.checked)}
-                />
-
-                <Checkbox
-                  label="Exiger un changement de mot de passe"
-                  description="L'utilisateur devra changer son mot de passe lors de sa première connexion"
-                  checked={formData?.requirePasswordChange}
-                  onChange={(e) => handleInputChange('requirePasswordChange', e?.target?.checked)}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-6 border-t border-border">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isLoading}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              variant="default"
-              loading={isLoading}
-              iconName={mode === 'add' ? 'UserPlus' : 'Save'}
-              iconPosition="left"
-              iconSize={16}
-            >
-              {mode === 'add' ? 'Créer l\'utilisateur' : 'Enregistrer les modifications'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <p className="flex items-center gap-2 text-xs font-caption text-muted-foreground">
+          <Icon name="Info" size={14} />
+          {isEdit
+            ? 'La désactivation via la corbeille équivaut à un désabonnement : le compte est conservé.'
+            : 'Le matricule, le nom d’utilisateur et le rôle sont transmis tels quels au serveur.'}
+        </p>
+      </form>
+    </Modal>
   );
 };
 

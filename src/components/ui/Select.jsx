@@ -9,7 +9,7 @@ const Select = React.forwardRef(({
     className,
     options = [],
     value,
-    defaultValue,
+    defaultValue: _defaultValue,
     placeholder = "Select an option",
     multiple = false,
     disabled = false,
@@ -105,11 +105,11 @@ const Select = React.forwardRef(({
                     htmlFor={selectId}
                     className={cn(
                         "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mb-2 block",
-                        error ? "text-destructive" : "text-foreground"
+                        error ? "text-error" : "text-foreground"
                     )}
                 >
                     {label}
-                    {required && <span className="text-destructive ml-1">*</span>}
+                    {required && <span className="text-error ml-1">*</span>}
                 </label>
             )}
             <div className="relative">
@@ -118,8 +118,8 @@ const Select = React.forwardRef(({
                     id={selectId}
                     type="button"
                     className={cn(
-                        "flex h-10 w-full items-center justify-between rounded-md border border-primary bg-white text-black px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-                        error && "border-destructive focus:ring-destructive",
+                        "flex h-10 w-full items-center justify-between rounded-md border border-border bg-input text-foreground px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                        error && "border-error focus:ring-error",
                         !hasValue && "text-muted-foreground"
                     )}
                     onClick={handleToggle}
@@ -173,7 +173,7 @@ const Select = React.forwardRef(({
 
                 {/* Dropdown */}
                 {isOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white text-black border border-border rounded-md shadow-md">
+                    <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border border-border rounded-md shadow-md">
                         {searchable && (
                             <div className="p-2 border-b">
                                 <div className="relative">
@@ -226,7 +226,7 @@ const Select = React.forwardRef(({
                 </p>
             )}
             {error && (
-                <p className="text-sm text-destructive mt-1">
+                <p className="text-sm text-error mt-1">
                     {error}
                 </p>
             )}

@@ -1,13 +1,33 @@
 /**
- * Endpoints API du domaine Users.
+ * Endpoints API du domaine Users (liste étendue en F6.5).
+ * Réponses validées par zod en frontière (Q2).
  */
-import { api } from '../../lib/api';
+import { api, API_BASE_URL } from '../../lib/api';
+import {
+  parseOrThrow,
+  usersListSchema,
+  userStatisticsSchema,
+  userImportResultSchema,
+} from '../../lib/validate';
+
+/** Filtres UI → paramètres `GET /users` (les vides sont omis). */
+export function toUsersParams({ page = 1, perPage = 20, filters = {} } = {}) {
+  const params = { page, per_page: perPage };
+  const copy = (key, value) => {
+    if (value === undefined || value === null || value === '') return;
+    params[key] = value;
+  };
+  copy('search', filters.search);
+  copy('role_id', filters.role_id);
+  copy('department_id', filters.department_id);
+  copy('is_active', filters.is_active);
+  return params;
+}
 
 export const usersApi = {
-  list: async ({ page = 1, perPage = 20, filters = {} } = {}) => {
-    const params = { page, per_page: perPage, ...filters };
-    const { data } = await api.get('/users', { params });
-    return data; // { users, total, pages, current_page, per_page }
+  list: async (query = {}) => {
+    const { data } = await api.get('/users', { params: toUsersParams(query) });
+    return parseOrThrow(usersListSchema, data, 'GET /users');
   },
 
   get: async (userId) => {
@@ -25,6 +45,7 @@ export const usersApi = {
     return data;
   },
 
+  /** Soft delete serveur : le compte passe à `is_active: false`. */
   remove: async (userId) => {
     const { data } = await api.delete(`/users/${userId}`);
     return data;
@@ -43,14 +64,22 @@ export const usersApi = {
     const { data } = await api.post('/users/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return data;
+    return parseOrThrow(userImportResultSchema, data, 'POST /users/import');
   },
 
-  exportUrl: '/users/export',
+  /** Export CSV (mêmes filtres que la liste) — ouvert avec `noopener`. */
+  exportUrl: (filters = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(toUsersParams({ perPage: undefined, filters })).filter(
+        ([key, value]) => key !== 'per_page' && key !== 'page' && value !== undefined
+      )
+    ).toString();
+    return `${API_BASE_URL}/users/export${qs ? `?${qs}` : ''}`;
+  },
 
   statistics: async () => {
     const { data } = await api.get('/users/statistics');
-    return data;
+    return parseOrThrow(userStatisticsSchema, data, 'GET /users/statistics');
   },
 
   roles: async () => {

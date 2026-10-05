@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from './api';
 import { useAuthStore } from './authStore';
+import { authKeys } from '../../lib/queryKeys';
 
 export const AUTH_QUERY_KEY = ['auth', 'me'];
 
@@ -90,8 +91,20 @@ export function useAuth() {
  */
 export function useSessions() {
   return useQuery({
-    queryKey: ['auth', 'sessions'],
+    queryKey: authKeys.sessions,
     queryFn: () => authApi.listSessions(),
+  });
+}
+
+/**
+ * Révoque une session précise (un appareil), sans toucher à la session courante.
+ */
+export function useRevokeSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (sessionId) => authApi.revokeSession(sessionId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: authKeys.sessions }),
   });
 }
 
@@ -108,5 +121,63 @@ export function useRevokeAllSessions() {
       clear();
       queryClient.clear();
     },
+  });
+}
+
+/** Alertes de sécurité non résolues du compte courant. */
+export function useSecurityAlerts() {
+  return useQuery({
+    queryKey: authKeys.securityAlerts,
+    queryFn: () => authApi.securityAlerts(),
+  });
+}
+
+/** Marque une alerte de sécurité comme résolue. */
+export function useResolveSecurityAlert() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (alertId) => authApi.resolveAlert(alertId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: authKeys.securityAlerts }),
+  });
+}
+
+/** Change le mot de passe du compte connecté (session conservée). */
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: ({ currentPassword, newPassword }) =>
+      authApi.changePassword(currentPassword, newPassword),
+  });
+}
+
+/** Finalise la réinitialisation via le lien email (route publique). */
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: ({ token, newPassword }) => authApi.resetPassword(token, newPassword),
+  });
+}
+
+/** Étape 1 : demande l'envoi du code d'activation 2FA. */
+export function useEnable2FA() {
+  return useMutation({ mutationFn: () => authApi.enable2FA() });
+}
+
+/** Étape 2 : confirme le code et active la 2FA (profil rafraîchi). */
+export function useConfirm2FA() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (code) => authApi.confirm2FA(code),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY }),
+  });
+}
+
+/** Désactive la 2FA (profil rafraîchi). */
+export function useDisable2FA() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => authApi.disable2FA(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY }),
   });
 }

@@ -1,366 +1,211 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * Recherche avancée (F5).
+ *
+ * Toute la vue (mots-clés, filtres, facettes, page) vit dans l'URL : une URL
+ * copiée rouvre la même recherche, le retour navigateur conserve l'état. La
+ * saisie est débouncée (300 ms) avant de toucher l'URL. Aucune donnée serveur
+ * en `useState` (M12) — seule la frappe en cours est locale.
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Breadcrumb from '../../components/ui/Breadcrumb';
-import SearchForm from './components/SearchForm';
-import SearchResults from './components/SearchResults';
-import SavedSearches from './components/SavedSearches';
-import SearchFilters from './components/SearchFilters';
-import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
+import { EmptyState } from '../../components/ui/EmptyState';
+import SearchForm from './components/SearchForm';
+import SearchFilters from './components/SearchFilters';
+import SearchResults from './components/SearchResults';
+import SearchHistory from './components/SearchHistory';
+import { useAuth } from '../../features/auth';
+import { mapBackendRole } from '../../lib/formatters';
+import {
+  useSearch,
+  parseSearchParams,
+  toSearchParams,
+  toApiParams,
+  hasSearchCriteria,
+} from '../../features/search';
+import { useDocTypes, useTags, useDepartments } from '../../features/referentials';
+import { toAppError } from '../../lib/errors';
+
+const DEBOUNCE_MS = 300;
 
 const AdvancedSearch = () => {
-  const [user] = useState({
-    id: 1,
-    name: "Ibrahim",
-    email: "ib@gmail.com",
-    role: "admin"
-  });
+  const navigate = useNavigate();
+  const { user: me, logout } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [searchState, setSearchState] = useState({
-    isLoading: false,
-    hasSearched: false,
-    results: [],
-    totalResults: 0,
-    searchCriteria: null
-  });
+  const view = useMemo(() => parseSearchParams(searchParams), [searchParams]);
+  const query = useMemo(() => toApiParams(view), [view]);
+  const criteria = hasSearchCriteria(view);
 
-  const [filters, setFilters] = useState({});
-  const [selectedDocuments, setSelectedDocuments] = useState([]);
-  const [showFilters, setShowFilters] = useState(true);
+  const [keyword, setKeyword] = useState(view.q || '');
 
+  const docTypesQuery = useDocTypes();
+  const departmentsQuery = useDepartments();
+  const tagsQuery = useTags();
+
+  const resultsQuery = useSearch(query, { enabled: criteria });
+
+  // L'URL est la source de vérité : si elle change ailleurs (retour, historique,
+  // lien partagé), on resynchronise la frappe locale.
   useEffect(() => {
-    document.title = "Recherche avancée - UniArchive";
-  }, []);
+    setKeyword(view.q || '');
+  }, [view.q]);
 
-  const handleSearch = async (criteria) => {
-    setSearchState(prev => ({
-      ...prev,
-      isLoading: true,
-      searchCriteria: criteria
-    }));
-
-    // Simulate API call
-    setTimeout(() => {
-      // Mock search results based on criteria
-      const mockResults = generateMockResults(criteria);
-      
-      setSearchState({
-        isLoading: false,
-        hasSearched: true,
-        results: mockResults,
-        totalResults: mockResults?.length,
-        searchCriteria: criteria
+  // Débounce de la saisie (F5.1) avant de pousser le paramètre `q`.
+  useEffect(() => {
+    if (keyword === (view.q || '')) return undefined;
+    const timer = setTimeout(() => {
+      setSearchParams(toSearchParams({ ...view, q: keyword || null, page: 1 }), {
+        replace: true,
       });
-    }, 1500);
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // `view` est recréé à chaque changement d'URL : on ne dépend que de la frappe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyword]);
+
+  const patchView = (patch, { replace = false } = {}) => {
+    setSearchParams(toSearchParams({ ...view, ...patch }), { replace });
   };
 
-  const generateMockResults = (criteria) => {
-    // This would normally be an API call
-    const baseResults = [
-      {
-        id: 1,
-        title: "Mémoire de Master - Intelligence Artificielle",
-        type: "Thèse",
-        department: "Informatique",
-        author: "Marie Dubois",
-        uploadDate: "2024-09-15",
-        modifiedDate: "2024-09-20",
-        size: "2.4 MB",
-        confidentiality: "Public",
-        relevanceScore: 95,
-        snippet: "L'intelligence artificielle représente un domaine en pleine expansion qui transforme notre approche des problèmes complexes...",
-        tags: ["IA", "Machine Learning", "Recherche"],
-        thumbnail: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=100&h=140&fit=crop",
-        hasAccess: true
-      },
-      {
-        id: 2,
-        title: "Rapport de Stage - Développement Web",
-        type: "Document administratif",
-        department: "Informatique",
-        author: "Pierre Martin",
-        uploadDate: "2024-09-10",
-        modifiedDate: "2024-09-18",
-        size: "1.8 MB",
-        confidentiality: "Interne",
-        relevanceScore: 87,
-        snippet: "Ce rapport présente les activités réalisées lors du stage de développement web au sein de l\'entreprise TechCorp...",
-        tags: ["Stage", "Développement", "Web"],
-        thumbnail: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&h=140&fit=crop",
-        hasAccess: true
-      }
-    ];
+  const handleClear = () => {
+    setKeyword('');
+    setSearchParams(new URLSearchParams());
+  };
 
-    // Filter results based on criteria
-    return baseResults?.filter(result => {
-      if (criteria?.keywords && !result?.title?.toLowerCase()?.includes(criteria?.keywords?.toLowerCase()) && 
-          !result?.snippet?.toLowerCase()?.includes(criteria?.keywords?.toLowerCase())) {
-        return false;
-      }
-      if (criteria?.documentType && result?.type !== criteria?.documentType) {
-        return false;
-      }
-      if (criteria?.departments?.length && !criteria?.departments?.includes(result?.department?.toLowerCase())) {
-        return false;
-      }
-      if (criteria?.author && !result?.author?.toLowerCase()?.includes(criteria?.author?.toLowerCase())) {
-        return false;
-      }
-      return true;
+  const handleReuse = (entry) => {
+    const filters = entry?.filters || {};
+    patchView({
+      q: entry?.query || null,
+      status: filters.status ?? null,
+      department_id: filters.department_id ?? null,
+      doc_type_id: filters.doc_type_id ?? null,
+      confidentiality: filters.confidentiality ?? null,
+      date_from: filters.created_from ?? null,
+      date_to: filters.created_to ?? null,
+      tag_ids: filters.tag_ids || [],
+      page: 1,
     });
   };
 
-  const handleResetSearch = () => {
-    setSearchState({
-      isLoading: false,
-      hasSearched: false,
-      results: [],
-      totalResults: 0,
-      searchCriteria: null
-    });
-    setFilters({});
-    setSelectedDocuments([]);
+  const handleLogout = async () => {
+    try {
+      await logout.mutateAsync();
+    } catch {
+      // session déjà morte
+    } finally {
+      navigate('/login');
+    }
   };
 
-  const handleLoadSavedSearch = (criteria) => {
-    handleSearch(criteria);
-  };
+  const headerUser = me
+    ? { name: me.full_name || me.username, role: mapBackendRole(me.role?.name), email: me.email }
+    : null;
 
-  const handleDeleteSavedSearch = (searchId) => {
-    console.log('Deleting saved search:', searchId);
-    // Implementation would go here
-  };
-
-  const handleSortResults = (sortBy) => {
-    const sortedResults = [...searchState?.results]?.sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a?.title?.localeCompare(b?.title);
-        case 'date_modified':
-          return new Date(b.modifiedDate) - new Date(a.modifiedDate);
-        case 'date_uploaded':
-          return new Date(b.uploadDate) - new Date(a.uploadDate);
-        case 'size':
-          return parseFloat(b?.size) - parseFloat(a?.size);
-        case 'relevance':
-        default:
-          return b?.relevanceScore - a?.relevanceScore;
-      }
-    });
-
-    setSearchState(prev => ({
-      ...prev,
-      results: sortedResults
-    }));
-  };
-
-  const handleExportResults = (format) => {
-    console.log('Exporting results in format:', format);
-    // Implementation would go here
-  };
-
-  const handleFilterChange = (filterType, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterType]: value
-    }));
-  };
-
-  const handleClearFilters = () => {
-    setFilters({});
-  };
-
-  const handleLogout = () => {
-    window.location.href = '/login';
-  };
+  const data = resultsQuery.data;
+  const items = data?.items || [];
+  const appError = resultsQuery.error ? toAppError(resultsQuery.error) : null;
+  const isPaused = appError?.code === 'too_many_requests';
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user} onLogout={handleLogout} />
+      <Header user={headerUser} onLogout={handleLogout} />
       <main className="pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Breadcrumb />
-          
-          {/* Page Header */}
+
           <div className="mb-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-              <div>
-                <h1 className="text-3xl font-heading font-bold text-foreground">
-                  Recherche avancée
-                </h1>
-                <p className="text-muted-foreground font-body mt-2">
-                  Trouvez rapidement les documents dont vous avez besoin avec des critères de recherche précis
-                </p>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <Button
-                  variant="outline"
-                  iconName="History"
-                  iconPosition="left"
-                  iconSize={16}
-                  className="font-body"
-                >
-                  Historique
-                </Button>
-                <Button
-                  variant="outline"
-                  iconName="HelpCircle"
-                  iconPosition="left"
-                  iconSize={16}
-                  className="font-body"
-                >
-                  Aide
-                </Button>
-              </div>
-            </div>
+            <h1 className="text-3xl font-heading font-bold text-foreground">Recherche avancée</h1>
+            <p className="text-muted-foreground font-body mt-2">
+              Trouvez rapidement les documents dont vous avez besoin.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Left Sidebar - Search Form and Saved Searches */}
+            {/* Colonne latérale : formulaire + historique */}
             <div className="lg:col-span-1 space-y-6">
               <SearchForm
-                onSearch={handleSearch}
-                onReset={handleResetSearch}
-                isLoading={searchState?.isLoading}
+                state={view}
+                keyword={keyword}
+                onKeywordChange={setKeyword}
+                onPatch={patchView}
+                onClear={handleClear}
+                docTypes={docTypesQuery.data || []}
+                departments={departmentsQuery.data || []}
+                tags={tagsQuery.data || []}
+                isLoading={resultsQuery.isFetching}
               />
-              
-              <SavedSearches
-                onLoadSearch={handleLoadSavedSearch}
-                onDeleteSearch={handleDeleteSavedSearch}
-              />
+              <SearchHistory onReuse={handleReuse} />
             </div>
 
-            {/* Main Content Area */}
+            {/* Zone principale : résultats + facettes */}
             <div className="lg:col-span-3">
-              <div className="w-full grid grid-cols-1 xl:grid-cols-4 gap-6">
-                {/* Search Results */}
-                <div className={`${showFilters ? 'xl:col-span-3' : 'xl:col-span-4'}`}>
-                  {searchState?.hasSearched ? (
-                    <SearchResults
-                      results={searchState?.results}
-                      totalResults={searchState?.totalResults}
-                      isLoading={searchState?.isLoading}
-                      onSort={handleSortResults}
-                      onExport={handleExportResults}
-                      onDocumentSelect={setSelectedDocuments}
-                      selectedDocuments={selectedDocuments}
+              {!criteria ? (
+                <div className="bg-card border border-border rounded-lg shadow-card p-12">
+                  <div className="text-center">
+                    <Icon
+                      name="Search"
+                      size={64}
+                      className="text-muted-foreground mx-auto mb-6"
                     />
-                  ) : (
-                    <div className="bg-card border border-border rounded-lg shadow-card p-12">
-                      <div className="text-center">
-                        <Icon name="Search" size={64} className="text-muted-foreground mx-auto mb-6" />
-                        <h2 className="text-2xl font-heading font-semibold text-foreground mb-4">
-                          Commencez votre recherche
-                        </h2>
-                        <p className="text-muted-foreground font-body mb-8 max-w-md mx-auto">
-                          Utilisez le formulaire de recherche pour trouver des documents spécifiques dans la base de données universitaire
-                        </p>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
-                          <div className="p-4 border border-border rounded-lg">
-                            <Icon name="FileText" size={32} className="text-primary mx-auto mb-3" />
-                            <h3 className="font-body font-medium text-foreground mb-2">Documents</h3>
-                            <p className="text-sm text-muted-foreground font-body">
-                              Recherchez parmi plus de 10,000 documents
-                            </p>
-                          </div>
-                          <div className="p-4 border border-border rounded-lg">
-                            <Icon name="Filter" size={32} className="text-primary mx-auto mb-3" />
-                            <h3 className="font-body font-medium text-foreground mb-2">Filtres avancés</h3>
-                            <p className="text-sm text-muted-foreground font-body">
-                              Affinez vos résultats avec des critères précis
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                    <h2 className="text-2xl font-heading font-semibold text-foreground mb-4">
+                      Commencez votre recherche
+                    </h2>
+                    <p className="text-muted-foreground font-body mb-8 max-w-md mx-auto">
+                      Saisissez des mots-clés ou choisissez des filtres pour interroger la base
+                      documentaire.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/document-upload')}
+                      className="text-primary font-body hover:underline"
+                    >
+                      Déposer un document
+                    </button>
+                  </div>
                 </div>
-
-                {/* Right Sidebar - Filters */}
-                {showFilters && searchState?.hasSearched && (
+              ) : appError && !isPaused ? (
+                <div className="bg-card border border-border rounded-lg shadow-card">
+                  <EmptyState
+                    icon="AlertTriangle"
+                    title="Recherche impossible"
+                    description={appError.message}
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                  <div className="xl:col-span-3">
+                    <SearchResults
+                      items={items}
+                      total={data?.total || 0}
+                      page={data?.page || view.page || 1}
+                      pages={data?.pages || 1}
+                      tookMs={data?.took_ms}
+                      engine={data?.engine}
+                      isLoading={resultsQuery.isLoading}
+                      isPaused={isPaused}
+                      pauseMessage={appError?.message}
+                      docTypes={docTypesQuery.data || []}
+                      departments={departmentsQuery.data || []}
+                      onOpen={(document) => navigate(`/document-library/${document.document_id}`)}
+                      onPageChange={(page) => patchView({ page })}
+                    />
+                  </div>
                   <div className="xl:col-span-1">
                     <div className="sticky top-24">
                       <SearchFilters
-                        activeFilters={filters}
-                        onFilterChange={handleFilterChange}
-                        resultCount={searchState?.totalResults}
-                        onClearFilters={handleClearFilters}
+                        facets={data?.facets || {}}
+                        state={view}
+                        onPatch={patchView}
+                        onClear={handleClear}
+                        resultCount={data?.total || 0}
                       />
                     </div>
                   </div>
-                )}
-              </div>
-
-              {/* Toggle Filters Button for Mobile */}
-              {searchState?.hasSearched && (
-                <div className="xl:hidden mt-6">
-                  <Button
-                    variant="outline"
-                    iconName={showFilters ? "EyeOff" : "Eye"}
-                    iconPosition="left"
-                    iconSize={16}
-                    onClick={() => setShowFilters(!showFilters)}
-                    fullWidth
-                    className="font-body"
-                  >
-                    {showFilters ? 'Masquer les filtres' : 'Afficher les filtres'}
-                  </Button>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="mt-12 bg-card border border-border rounded-lg shadow-card p-6">
-            <h3 className="text-lg font-heading font-semibold text-foreground mb-4">
-              Actions rapides
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Button
-                variant="outline"
-                iconName="Upload"
-                iconPosition="left"
-                iconSize={16}
-                onClick={() => window.location.href = '/document-upload'}
-                fullWidth
-                className="font-body"
-              >
-                Télécharger un document
-              </Button>
-              <Button
-                variant="outline"
-                iconName="FolderOpen"
-                iconPosition="left"
-                iconSize={16}
-                onClick={() => window.location.href = '/document-library'}
-                fullWidth
-                className="font-body"
-              >
-                Parcourir la bibliothèque
-              </Button>
-              <Button
-                variant="outline"
-                iconName="BarChart3"
-                iconPosition="left"
-                iconSize={16}
-                onClick={() => window.location.href = '/dashboard'}
-                fullWidth
-                className="font-body"
-              >
-                Voir les statistiques
-              </Button>
-              <Button
-                variant="outline"
-                iconName="Settings"
-                iconPosition="left"
-                iconSize={16}
-                fullWidth
-                className="font-body"
-              >
-                Préférences de recherche
-              </Button>
             </div>
           </div>
         </div>

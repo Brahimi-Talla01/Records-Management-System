@@ -46,7 +46,7 @@ const QuickActionsPanel = ({ userRole, onAction }) => {
     <div className="bg-card border border-border rounded-lg p-6 shadow-card">
       <div className="flex items-center space-x-3 mb-6">
         <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-          <Icon name="Zap" size={18} color="white" />
+          <Icon name="Zap" size={18} className="text-primary-foreground" />
         </div>
         <h2 className="text-lg font-heading font-semibold text-foreground">Actions Rapides</h2>
       </div>
