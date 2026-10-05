@@ -135,6 +135,26 @@ def test_readable_rend_le_clair_sans_marque(app):
     assert stream.read() == PDF
 
 
+def test_readable_ferme_la_source_et_sert_apres_fermeture(app):
+    """Le flux renvoyé doit survivre à la fermeture du handle source.
+
+    Régression : un worker gunicorn ferme le fichier au teardown, après
+    l'envoi de la réponse — le corps partait alors vide (streaming tenté sur
+    un handle fermé).
+    """
+    import tempfile
+
+    handle = open(tempfile.NamedTemporaryFile(suffix='.pdf', delete=False).name,
+                  'rb+')
+    handle.write(PDF)
+    handle.seek(0)
+
+    stream = crypto.readable(handle)
+
+    assert handle.closed  # la source est fermée par readable
+    assert stream.read() == PDF  # et le flux servi reste intact
+
+
 def test_readable_dechiffre_la_marque(app, monkeypatch):
     monkeypatch.setitem(app.config, 'FILE_ENCRYPTION_KEY', KEY)
 

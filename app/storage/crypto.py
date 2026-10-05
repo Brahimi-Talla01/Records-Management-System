@@ -125,16 +125,25 @@ def decrypt(source, dest) -> None:
 
 
 def readable(source):
-    """Flux prêt à être servi : déchiffre si la marque de chiffrement est là."""
-    header = source.read(len(MAGIC))
-    source.seek(0)
-    if not is_encrypted(header):
-        return source
-    buffer = io.BytesIO()
-    decrypt(source, buffer)
-    buffer.seek(0)
-    source.close()
-    return buffer
+    """Flux prêt à être servi : déchiffre si la marque de chiffrement est là.
+
+    Dans les deux cas un flux **indépendant de la connexion** est renvoyé : le
+    handle fichier est fermé avant le retour (un worker gunicorn multi-threads
+    ferme sinon le fichier au teardown, après l'envoi — corps de réponse vide).
+    """
+    with source:
+        header = source.read(len(MAGIC))
+        source.seek(0)
+        if not is_encrypted(header):
+            # Fichier en clair : servi depuis la mémoire (taille d'un document
+            # ≤ MAX_CONTENT_LENGTH = 50 Mo, bornée par Nginx et l'API).
+            buffer = io.BytesIO(source.read())
+            buffer.seek(0)
+            return buffer
+        buffer = io.BytesIO()
+        decrypt(source, buffer)
+        buffer.seek(0)
+        return buffer
 
 
 def stored_encrypted(storage_path: str) -> bool:
