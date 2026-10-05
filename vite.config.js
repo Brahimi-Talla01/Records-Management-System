@@ -22,7 +22,14 @@ export default defineConfig({
           // tableau de bord) et mesurés par une entrée size-limit dédiée.
           if (/recharts|(^|\/)d3-|node_modules\/d3\//.test(id)) return 'charts';
           if (/@tanstack/.test(id)) return 'vendor-query';
-          if (/react-router|react-dom|\/react\//.test(id)) return 'vendor-react';
+          // React et son écosystème dans le MÊME chunk que le reste du vendor :
+          // react (CJS) requiert des helpers d'interop Rollup au top-level de
+          // son chunk ; si `vendor-react` était séparé, le helper pouvait être
+          // hébergé dans `vendor` (qui importe React) → cycle
+          // d'initialisation inter-chunks (crash « Cannot read properties of
+          // undefined (reading 'forwardRef') » en prod). Un seul chunk vendor
+          // = zéro arête intra-vendor. Seul `charts` reste isolé (budget
+          // size-limit dédié, chargé avec le tableau de bord uniquement).
           return 'vendor';
         },
       },

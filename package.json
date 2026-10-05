@@ -12,6 +12,10 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "size": "size-limit",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:install": "playwright install --with-deps chromium",
+    "e2e:report": "playwright show-report",
     "codegen": "openapi-typescript http://localhost:5000/api/openapi.json -o src/lib/schema/api.d.ts"
   },
   "size-limit": [
@@ -64,6 +68,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@playwright/test": "^1.63.0",
     "@size-limit/file": "^13.1.1",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
@@ -75,9 +80,10 @@
     "jsdom": "^29.1.1",
     "msw": "^2.15.0",
     "openapi-typescript": "^7.13.0",
-    "size-limit": "^12.1.0",
+    "size-limit": "^13.1.1",
     "typescript": "^5.9.3",
     "vite": "^7.1.7",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "vitest-axe": "^0.1.0"
   }
 }
