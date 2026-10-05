@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes as RouterRoutes, Route, Navigate, useLocation } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ScrollToTop from "./components/ScrollToTop";
+import SkipLink from "./components/ui/SkipLink";
 import { RequireAuth, RequireRole, RequireScope, useAuth } from "./features/auth";
 
 // Chaque écran est un chunk séparé (budget de bundle, A10).
@@ -96,6 +97,7 @@ const Routes = () => {
     <BrowserRouter>
       <RouteTitle />
       <ScrollToTop />
+      <SkipLink />
       <RouterRoutes>
         {/* Route racine - redirige selon l'état de session */}
         <Route path="/" element={<RootRedirect />} />

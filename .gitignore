@@ -14,6 +14,12 @@ dist-ssr
 
 .env
 
+# Playwright (F7) : rapports, traces, états d'auth enregistrés
+playwright-report
+test-results
+blob-report
+e2e/.auth
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

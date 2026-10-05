@@ -103,7 +103,7 @@ const Audit = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header user={headerUser} onLogout={handleLogout} />
-      <main className="pt-16">
+      <main id="main-content" tabIndex={-1} className="pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Breadcrumb />
 
@@ -198,13 +198,14 @@ const Audit = () => {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
+                  <caption className="sr-only">Journal d'audit</caption>
                   <thead>
                     <tr className="border-b border-border bg-muted text-left font-heading font-medium text-foreground">
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Utilisateur</th>
-                      <th className="py-3 px-4">Action</th>
-                      <th className="py-3 px-4">Objet</th>
-                      <th className="py-3 px-4">Détails</th>
+                      <th scope="col" className="py-3 px-4">Date</th>
+                      <th scope="col" className="py-3 px-4">Utilisateur</th>
+                      <th scope="col" className="py-3 px-4">Action</th>
+                      <th scope="col" className="py-3 px-4">Objet</th>
+                      <th scope="col" className="py-3 px-4">Détails</th>
                     </tr>
                   </thead>
                   <tbody>

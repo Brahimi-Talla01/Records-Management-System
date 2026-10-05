@@ -52,9 +52,10 @@ const UserTable = ({
       {/* Desktop */}
       <div className="hidden lg:block overflow-x-auto">
         <table className="w-full">
+          <caption className="sr-only">Liste des utilisateurs</caption>
           <thead className="bg-muted border-b border-border">
             <tr>
-              <th className="w-12 p-4">
+              <th scope="col" className="w-12 p-4">
                 <Checkbox
                   checked={isAllSelected}
                   indeterminate={isIndeterminate}
@@ -62,16 +63,16 @@ const UserTable = ({
                   aria-label="Tout sélectionner"
                 />
               </th>
-              <th className="text-left p-4 font-heading font-medium text-foreground">Compte</th>
-              <th className="text-left p-4 font-heading font-medium text-foreground">Rôle</th>
-              <th className="text-left p-4 font-heading font-medium text-foreground">
+              <th scope="col" className="text-left p-4 font-heading font-medium text-foreground">Compte</th>
+              <th scope="col" className="text-left p-4 font-heading font-medium text-foreground">Rôle</th>
+              <th scope="col" className="text-left p-4 font-heading font-medium text-foreground">
                 Département
               </th>
-              <th className="text-left p-4 font-heading font-medium text-foreground">
+              <th scope="col" className="text-left p-4 font-heading font-medium text-foreground">
                 Dernière connexion
               </th>
-              <th className="text-left p-4 font-heading font-medium text-foreground">Statut</th>
-              <th className="w-44 p-4 text-center font-heading font-medium text-foreground">
+              <th scope="col" className="text-left p-4 font-heading font-medium text-foreground">Statut</th>
+              <th scope="col" className="w-44 p-4 text-center font-heading font-medium text-foreground">
                 Actions
               </th>
             </tr>

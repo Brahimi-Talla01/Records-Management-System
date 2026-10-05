@@ -83,4 +83,11 @@ export default defineConfig([
       'local/no-raw-colors': 'error',
     },
   },
+  {
+    // E2E Playwright + config : environnement Node (process, Buffer, __dirname…).
+    files: ['e2e/**/*.{js,jsx}', 'playwright.config.js'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 ])

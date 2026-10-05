@@ -79,9 +79,10 @@ const DocumentTable = ({
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
+          <caption className="sr-only">Liste des documents de la bibliothèque</caption>
           <thead className="bg-muted border-b border-border">
             <tr>
-              <th className="w-12 p-3">
+              <th scope="col" className="w-12 p-3">
                 <Checkbox
                   checked={allSelected}
                   indeterminate={!allSelected && someSelected}
@@ -91,7 +92,18 @@ const DocumentTable = ({
                 />
               </th>
               {COLUMNS.map((column) => (
-                <th key={column.key} className="text-left p-3 font-heading font-medium text-sm text-foreground">
+                <th
+                  key={column.key}
+                  scope="col"
+                  aria-sort={
+                    sort === column.key
+                      ? order === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                  className="text-left p-3 font-heading font-medium text-sm text-foreground"
+                >
                   <Button
                     variant="ghost"
                     size="sm"
@@ -104,13 +116,13 @@ const DocumentTable = ({
                   </Button>
                 </th>
               ))}
-              <th className="text-left p-3 font-heading font-medium text-sm text-foreground">
+              <th scope="col" className="text-left p-3 font-heading font-medium text-sm text-foreground">
                 Confidentialité
               </th>
-              <th className="text-left p-3 font-heading font-medium text-sm text-foreground">
+              <th scope="col" className="text-left p-3 font-heading font-medium text-sm text-foreground">
                 Statut
               </th>
-              <th className="text-center p-3 font-heading font-medium text-sm text-foreground">
+              <th scope="col" className="text-center p-3 font-heading font-medium text-sm text-foreground">
                 Actions
               </th>
             </tr>

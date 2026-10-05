@@ -159,7 +159,7 @@ const Campuses = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header user={headerUser} onLogout={handleLogout} />
-      <main className="pt-16">
+      <main id="main-content" tabIndex={-1} className="pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Breadcrumb />
 
@@ -190,13 +190,14 @@ const Campuses = () => {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
+                  <caption className="sr-only">Liste des campus</caption>
                   <thead>
                     <tr className="border-b border-border text-left font-heading font-medium text-foreground">
-                      <th className="py-3 px-4">Campus</th>
-                      <th className="py-3 px-4">Ville</th>
-                      <th className="py-3 px-4">Ressources</th>
-                      <th className="py-3 px-4">Statut</th>
-                      <th className="py-3 px-4">Actions</th>
+                      <th scope="col" className="py-3 px-4">Campus</th>
+                      <th scope="col" className="py-3 px-4">Ville</th>
+                      <th scope="col" className="py-3 px-4">Ressources</th>
+                      <th scope="col" className="py-3 px-4">Statut</th>
+                      <th scope="col" className="py-3 px-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
