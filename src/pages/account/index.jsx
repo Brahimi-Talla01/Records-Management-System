@@ -28,7 +28,7 @@ const Account = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header user={headerUser} onLogout={() => navigate('/login')} />
-      <main className="pt-16">
+      <main id="main-content" tabIndex={-1} className="pt-16">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <Breadcrumb />
           <div className="mb-8 mt-4">

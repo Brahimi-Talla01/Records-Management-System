@@ -17,6 +17,14 @@ const Input = React.forwardRef(({
     // Base input classes
     const baseInputClasses = "flex h-10 w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
+    // Liaison accessible : la description et le message d'erreur sont annoncés au champ.
+    const descriptionId = `${inputId}-description`;
+    const errorId = `${inputId}-error`;
+    const describedBy =
+        [description && !error ? descriptionId : null, error ? errorId : null]
+            .filter(Boolean)
+            .join(' ') || undefined;
+
     // Checkbox-specific styles
     if (type === "checkbox") {
         return (
@@ -28,6 +36,7 @@ const Input = React.forwardRef(({
                 )}
                 ref={ref}
                 id={inputId}
+                required={required}
                 {...props}
             />
         );
@@ -44,6 +53,7 @@ const Input = React.forwardRef(({
                 )}
                 ref={ref}
                 id={inputId}
+                required={required}
                 {...props}
             />
         );
@@ -74,17 +84,20 @@ const Input = React.forwardRef(({
                 )}
                 ref={ref}
                 id={inputId}
+                required={required}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={describedBy}
                 {...props}
             />
 
             {description && !error && (
-                <p className="text-sm text-muted-foreground">
+                <p id={descriptionId} className="text-sm text-muted-foreground">
                     {description}
                 </p>
             )}
 
             {error && (
-                <p className="text-sm text-error">
+                <p id={errorId} role="alert" className="text-sm text-error">
                     {error}
                 </p>
             )}

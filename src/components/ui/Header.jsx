@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Icon from '../AppIcon';
 import Button from './Button';
@@ -54,6 +54,19 @@ const Header = ({ user = null, onLogout }) => {
   ];
 
   const isActive = (path) => location?.pathname === path;
+
+  // Échap referme tous les menus déroulants (navigation clavier).
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsAdminMenuOpen(false);
+        setIsNotificationOpen(false);
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const handleNavigation = (path) => {
     navigate(path);
@@ -122,6 +135,7 @@ const Header = ({ user = null, onLogout }) => {
                 iconPosition="left"
                 iconSize={16}
                 onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
+                aria-haspopup="menu"
                 aria-expanded={isAdminMenuOpen}
                 className="font-body font-medium transition-colors text-foreground hover:text-primary"
               >
@@ -171,6 +185,8 @@ const Header = ({ user = null, onLogout }) => {
               size="icon"
               onClick={() => setIsNotificationOpen(!isNotificationOpen)}
               className="relative transition-colors duration-200"
+              aria-haspopup="true"
+              aria-expanded={isNotificationOpen}
               aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} non lues)` : ''}`}
             >
               <Icon name="Bell" size={20} />
@@ -294,6 +310,7 @@ const Header = ({ user = null, onLogout }) => {
                 variant="ghost"
                 size="icon"
                 onClick={handleLogout}
+                aria-label="Se déconnecter"
                 className="text-muted-foreground hover:text-error transition-colors duration-200"
               >
                 <Icon name="LogOut" size={18} />
@@ -311,6 +328,8 @@ const Header = ({ user = null, onLogout }) => {
               if (isNotificationOpen) setIsNotificationOpen(false); 
             }}
             className="lg:hidden ml-1"
+            aria-expanded={isMenuOpen}
+            aria-label={isMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
           >
             <Icon name={isMenuOpen ? "X" : "Menu"} size={22} />
           </Button>

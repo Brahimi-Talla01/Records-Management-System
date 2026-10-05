@@ -128,6 +128,14 @@
     border: none;
     cursor: pointer;
   }
+
+  /* Focus visible global : anneau sur tout élément interactif, même sans
+     classe d'anneau dédiée. `:where()` garde la spécificité à 0 pour laisser
+     les utilitaires (`focus:outline-none focus:ring-2`) reprendre la main. */
+  :where(a, button, [role='button'], input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
 }
 
 /* ============================================

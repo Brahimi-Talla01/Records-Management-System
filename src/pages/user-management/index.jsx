@@ -246,7 +246,7 @@ const UserManagement = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header user={headerUser} onLogout={handleLogout} />
-      <main className="pt-16">
+      <main id="main-content" tabIndex={-1} className="pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Breadcrumb />
 
