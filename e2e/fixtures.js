@@ -2,11 +2,15 @@ import { test as base, expect } from '@playwright/test';
 import { latestTwoFactorCode } from './helpers/db.js';
 
 /**
- * Comptes de jeu de test (seeds backend `flask seed all`).
- * Aucun compte réel de production n'est utilisé.
+ * Comptes de jeu de test (bootstrap backend : variables ADMIN_* + seeds démo).
+ * Aucun compte réel de production n'est utilisé ; les défauts correspondent au
+ * bootstrap par défaut (ADMIN_* en .env.example) et aux comptes de démo.
  */
 export const ACCOUNTS = {
-  admin: { username: 'admin', password: 'Admin@2024' },
+  admin: {
+    username: process.env.E2E_ADMIN_USERNAME || 'admin',
+    password: process.env.E2E_ADMIN_PASSWORD || 'Admin@2024',
+  },
   prof: { username: process.env.E2E_PROF_USERNAME || 'prof', password: process.env.E2E_PROF_PASSWORD || 'Demo@2024' },
 };
 
