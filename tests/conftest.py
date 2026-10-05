@@ -35,6 +35,14 @@ from app.models.two_factor import TwoFactorCode  # noqa: E402
 from app.services import session_service  # noqa: E402
 from extensions import db  # noqa: E402
 
+# Bootstrap admin (12-factor) : le .env local (chargé par `load_dotenv()` lors
+# de l'import de config.py, ci-dessus) ne doit pas faire dévier les attentes des
+# seeds (`seed_all` → `seed_admin`) — le bloc ADMIN_* est donc neutralisé APRÈS
+# les imports, là où le pop précédent était écrasé par le .env.
+for _admin_var in ('ADMIN_USERNAME', 'ADMIN_EMAIL', 'ADMIN_PASSWORD',
+                   'ADMIN_FULL_NAME', 'ADMIN_MATRICULE'):
+    os.environ.pop(_admin_var, None)
+
 
 @event.listens_for(Engine, "connect")
 def _sqlite_enforce_foreign_keys(dbapi_connection, _record):

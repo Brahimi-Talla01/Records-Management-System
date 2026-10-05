@@ -11,6 +11,8 @@ Exécution :
     python init_db.py         # équivalent historique (conteneur / dev manuel)
 """
 
+import os
+
 from extensions import db
 from app.models.campus import Campus
 from app.models.department import Department
@@ -57,13 +59,57 @@ DEPARTMENTS = [
     ('Administration', 'ADMIN', "Administration générale de l'université", None),
 ]
 
-DEFAULT_ADMIN = {
-    'matricule': 'ADMIN001',
-    'username': 'admin',
-    'email': 'admin@uniarchive.edu',
-    'full_name': 'Administrateur Principal',
-    'password': 'Admin@2024',
-}
+# ---------------------------------------------------------------------------
+# Bootstrap du super admin (12-factor)
+# ---------------------------------------------------------------------------
+# Les identifiants viennent de l'environnement (backend/.env ou variables
+# docker compose) ; les valeurs ci-dessous ne sont que des replis de dév.
+
+_ADMIN_ENV_KEYS = ('ADMIN_MATRICULE', 'ADMIN_USERNAME', 'ADMIN_EMAIL',
+                   'ADMIN_FULL_NAME', 'ADMIN_PASSWORD')
+
+
+def admin_bootstrap_config() -> dict:
+    """
+    Identifiants du super admin à créer : la variable d'environnement gagne,
+    sinon repli de développement. Utilisé par `seed_admin`, `seed_all` et la
+    CLI (`flask seed admin` / `all`).
+    """
+    return {
+        'matricule': os.environ.get('ADMIN_MATRICULE') or 'ADMIN001',
+        'username': os.environ.get('ADMIN_USERNAME') or 'admin',
+        'email': os.environ.get('ADMIN_EMAIL') or 'admin@uniarchive.edu',
+        'full_name': os.environ.get('ADMIN_FULL_NAME') or 'Administrateur Principal',
+        'password': os.environ.get('ADMIN_PASSWORD') or 'Admin@2024',
+    }
+
+
+def _validate_admin_credentials(username: str, email: str, password: str) -> None:
+    """Mêmes règles que l'API (auth/routes.validate_password_strength)."""
+    import re
+
+    if not username or not username.strip():
+        raise ValueError("ADMIN_USERNAME ne peut pas être vide.")
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email or ''):
+        raise ValueError(f"ADMIN_EMAIL invalide : « {email} ».")
+    if len(password or '') < 8:
+        raise ValueError("ADMIN_PASSWORD doit contenir au moins 8 caractères.")
+    if not re.search(r'[A-Z]', password):
+        raise ValueError("ADMIN_PASSWORD doit contenir au moins une majuscule.")
+    if not re.search(r'[a-z]', password):
+        raise ValueError("ADMIN_PASSWORD doit contenir au moins une minuscule.")
+    if not re.search(r'\d', password):
+        raise ValueError("ADMIN_PASSWORD doit contenir au moins un chiffre.")
+
+
+def _refuse_default_password_in_production() -> None:
+    """Bloque le repli « Admin@2024 » quand FLASK_ENV=production (sans env admin)."""
+    if os.environ.get('FLASK_ENV', 'production').lower() == 'production' \
+            and not os.environ.get('ADMIN_PASSWORD'):
+        raise RuntimeError(
+            "FLASK_ENV=production : définissez ADMIN_PASSWORD (et idéalement "
+            "ADMIN_USERNAME/ADMIN_EMAIL) dans l'environnement — le mot de "
+            "passe par défaut est refusé.")
 
 DEFAULT_CAMPUS = {
     'code': 'PRINCIPAL',
@@ -196,20 +242,35 @@ def seed_departments() -> int:
     return len(to_create)
 
 
-def seed_admin(username=DEFAULT_ADMIN['username'],
-               password=DEFAULT_ADMIN['password'],
-               matricule=None,
-               email=None) -> int:
+def seed_admin(username=None, password=None, matricule=None, email=None) -> int:
     """
-    Crée le compte administrateur initial (1 si créé, 0 s'il existe déjà).
+    Crée le compte super admin de bootstrap (1 si créé, 0 s'il existe déjà).
+
+    Les identifiants non passés explicitement viennent de l'environnement
+    (ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_EMAIL, ADMIN_MATRICULE,
+    ADMIN_FULL_NAME) avec repli de développement. En FLASK_ENV=production,
+    l'absence d'ADMIN_PASSWORD est refusée (aucun mot de passe par défaut).
 
     Dépend des rôles et du département ADMIN : ces seeds sont appelés en amont.
     """
     seed_roles()
     seed_departments()
 
+    cfg = admin_bootstrap_config()
+    username = username or cfg['username']
+    password = password or cfg['password']
+    email = email or cfg['email']
+
+    _validate_admin_credentials(username, email, password)
+
     if UserAccount.query.filter_by(username=username).first() is not None:
         return 0
+
+    # La garde production ne s'applique qu'au bootstrap par environnement : un
+    # mot de passe explicite en CLI reste permis (intervention d'exploitation),
+    # et un redémarrage avec le compte déjà créé ne casse pas le démarrage.
+    if password is cfg['password'] and username is cfg['username']:
+        _refuse_default_password_in_production()
 
     admin_role = Role.query.filter_by(name='Admin').first()
     admin_dept = Department.query.filter_by(code='ADMIN').first()
@@ -219,10 +280,10 @@ def seed_admin(username=DEFAULT_ADMIN['username'],
         )
 
     admin_user = UserAccount(
-        matricule=matricule or DEFAULT_ADMIN['matricule'],
+        matricule=matricule or cfg['matricule'],
         username=username,
-        email=email or DEFAULT_ADMIN['email'],
-        full_name=DEFAULT_ADMIN['full_name'],
+        email=email,
+        full_name=cfg['full_name'],
         role_id=admin_role.role_id,
         department_id=admin_dept.department_id,
         campus_id=None,
@@ -301,7 +362,6 @@ def seed_all(username=None, password=None) -> dict:
         'folders': seed_folders(),
         'doctypes': seed_doctypes(),
         'departments': seed_departments(),
-        'admin': seed_admin(username=username or DEFAULT_ADMIN['username'],
-                            password=password or DEFAULT_ADMIN['password']),
+        'admin': seed_admin(username=username, password=password),
         'demo': seed_demo(),
     }

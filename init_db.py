@@ -35,7 +35,10 @@ def init_database():
             'admin': 'compte admin',
             'demo': 'comptes démo',
         }
-        results = seeds.seed_all()
+        results = seeds.seed_all(
+            username=os.environ.get('ADMIN_USERNAME') or None,
+            password=os.environ.get('ADMIN_PASSWORD') or None,
+        )
         for key, count in results.items():
             label = labels.get(key, key)
             if count:
@@ -44,10 +47,11 @@ def init_database():
                 print(f"   - {label} : déjà en place")
 
         if results.get('admin'):
+            cfg = seeds.admin_bootstrap_config()
             print("\n" + "=" * 60)
-            print("   Identifiants de connexion :")
-            print(f"   Username: {seeds.DEFAULT_ADMIN['username']}")
-            print(f"   Password: {seeds.DEFAULT_ADMIN['password']}")
+            print("   Super admin de bootstrap créé :")
+            print(f"   Username: {cfg['username']}")
+            print("   Password: (valeur de ADMIN_PASSWORD — ne pas l'afficher)")
             print("   ⚠️  CHANGEZ CE MOT DE PASSE EN PRODUCTION !")
             print("=" * 60)
 

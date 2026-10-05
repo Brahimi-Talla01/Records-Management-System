@@ -62,14 +62,55 @@ with app.app_context():
     print("Alembic — application des migrations…")
     upgrade()
 
-    # Seed uniquement en l'absence de données
+    # 1) Bootstrap du super admin : identifiants via ADMIN_* (variables
+    #    d'environnement), idempotent — ne fait rien si le compte existe déjà.
+    #    Refus en production sans ADMIN_PASSWORD (garde seeds.py).
+    # 2) SEED_DEMO_DATA=true : comptes de démo (idempotents) puis documents de
+    #    démonstration — installés seulement si la base ne contient QUE des
+    #    documents de démo (ou aucun) : un vrai document présent = refus, pour
+    #    ne jamais mélanger démo et données réelles.
+    from app import demo_data
+    from app import seeds
+    from app.models.document import Document
     from app.models.role import Role
+
+    # 1) Données de base d'abord (rôles, campus, dossiers, TYPES, départements,
+    #    réglages, comptes démo) : seed_admin dépend d'une partie de ce socle et
+    #    ne doit jamais passer avant (sinon le test « rôles présents » sauterait
+    #    le reste du seed).
     if Role.query.count() == 0:
         print("Seed des données de base…")
         import init_db
         init_db.init_database()  # appel explicite (le module n'exécute rien à l'import)
     else:
-        print("Données déjà présentes — seed ignoré")
+        print("Données de base déjà présentes — seed ignoré")
+
+    # 2) Bootstrap du super admin : identifiants via ADMIN_* (variables
+    #    d'environnement), idempotent — 0 si le compte existe déjà. Refus en
+    #    production sans ADMIN_PASSWORD (garde seeds.py).
+    print("Bootstrap du super admin (ADMIN_*)…")
+    seeds.seed_admin()
+
+    # 3) SEED_DEMO_DATA=true : documents de démonstration — installés seulement
+    #    si la base ne contient QUE des documents de démo (ou aucun) : un vrai
+    #    document présent = refus, pour ne jamais mélanger démo et données réelles.
+    if os.environ.get('SEED_DEMO_DATA', '').strip().lower() == 'true':
+        demo_titles = {title for title, *_ in demo_data.DEMO_DOCUMENTS}
+        existing = {row[0] for row in db.session.query(Document.title).all()}
+        intruders = existing - demo_titles
+        if intruders:
+            print("SEED_DEMO_DATA : documents réels présents en base — "
+                  "données de démo non installées")
+        else:
+            print("SEED_DEMO_DATA : installation des données de démonstration…")
+            try:
+                created = demo_data.seed_demo_content()
+                print(f"   ✓ documents de démo : {created['documents']} créé(s), "
+                      f"{created['tags']} étiquette(s)")
+            except Exception as exc:  # noqa: BLE001 — le démarrage ne doit pas casser
+                print(f"   ⚠️  données de démo ignorées : {exc}")
+    else:
+        print("SEED_DEMO_DATA non activé — comptes et documents de démo ignorés")
 
 print("Base prête")
 EOF

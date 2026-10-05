@@ -5,6 +5,8 @@ Commandes Flask de l'application (plan07 — P0.6).
 Le groupe est enregistré dans `create_app()` : `flask --app wsgi seed all`.
 """
 
+import os
+
 import click
 from flask.cli import with_appcontext
 
@@ -83,15 +85,13 @@ def seed_departments_cmd():
 
 
 @seed_group.command('admin')
-@click.option('--username', default=None, help="Nom d'utilisateur du compte admin.")
-@click.option('--password', default=None, help="Mot de passe initial (défaut : Admin@2024).")
+@click.option('--username', default=None, help="Nom d'utilisateur (défaut : ADMIN_USERNAME ou 'admin').")
+@click.option('--password', default=None,
+              help='Mot de passe initial (défaut : ADMIN_PASSWORD ; refusé en production si absent).')
 @with_appcontext
 def seed_admin_cmd(username, password):
-    """Compte administrateur initial."""
-    _report('compte admin', seeds.seed_admin(
-        username=username or seeds.DEFAULT_ADMIN['username'],
-        password=password or seeds.DEFAULT_ADMIN['password'],
-    ))
+    """Compte super admin de bootstrap (identifiants via ADMIN_*)."""
+    _report('compte admin', seeds.seed_admin(username=username, password=password))
 
 
 @seed_group.command('demo')
@@ -101,9 +101,29 @@ def seed_demo_cmd():
     _report('comptes démo', seeds.seed_demo())
 
 
+@seed_group.command('demo-data')
+@click.option('--force', is_flag=True,
+              help="Autorise l'exécution même en FLASK_ENV=production.")
+@with_appcontext
+def seed_demo_data_cmd(force):
+    """Jeu de démonstration : documents PDF réels + étiquettes."""
+    from app import demo_data
+
+    if os.environ.get('FLASK_ENV', '').lower() == 'production' and not force:
+        raise click.UsageError(
+            "Jeu de démonstration refusé en FLASK_ENV=production "
+            "(contourner explicitement avec --force).")
+    try:
+        results = demo_data.seed_demo_content()
+    except demo_data.DemoDataError as exc:
+        raise click.UsageError(str(exc))
+    _report('étiquettes de démo', results['tags'])
+    _report('documents de démo', results['documents'])
+
+
 @seed_group.command('all')
-@click.option('--username', default=None, help="Nom d'utilisateur du compte admin.")
-@click.option('--password', default=None, help="Mot de passe initial de l'admin.")
+@click.option('--username', default=None, help="Nom d'utilisateur du compte admin (défaut : ADMIN_USERNAME).")
+@click.option('--password', default=None, help="Mot de passe initial de l'admin (défaut : ADMIN_PASSWORD).")
 @with_appcontext
 def seed_all_cmd(username, password):
     """Toutes les cibles, dans l'ordre de dépendance."""
