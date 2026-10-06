@@ -26,7 +26,8 @@ import RecentDocuments from './components/RecentDocuments';
 import ExpiringDocuments from './components/ExpiringDocuments';
 import UploadsChart from './components/UploadsChart';
 import SystemStatus from './components/SystemStatus';
-import Button from '../../components/ui/Button';
+import HelpSupportCard from './components/HelpSupportCard';
+import DashboardFooter from './components/DashboardFooter';
 import Icon from '../../components/AppIcon';
 
 const Dashboard = () => {
@@ -196,99 +197,13 @@ const Dashboard = () => {
                 onDelete={(id) => deleteNotification.mutate(id)}
               />
 
-              {/* Help & Support */}
-              <div className="bg-card border border-border rounded-lg p-6 shadow-card">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-8 h-8 bg-info rounded-lg flex items-center justify-center">
-                    <Icon name="HelpCircle" size={18} className="text-info-foreground" />
-                  </div>
-                  <h3 className="text-lg font-heading font-semibold text-foreground">Aide & Support</h3>
-                </div>
-
-                <div className="space-y-3">
-                  <Button
-                    variant="ghost"
-                    iconName="Book"
-                    iconPosition="left"
-                    iconSize={16}
-                    fullWidth
-                    className="justify-start font-body"
-                  >
-                    Guide d'utilisation
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    iconName="MessageCircle"
-                    iconPosition="left"
-                    iconSize={16}
-                    fullWidth
-                    className="justify-start font-body"
-                  >
-                    Contacter le support
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    iconName="Video"
-                    iconPosition="left"
-                    iconSize={16}
-                    fullWidth
-                    className="justify-start font-body"
-                  >
-                    Tutoriels vidéo
-                  </Button>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="bg-info/10 rounded-lg p-3">
-                    <div className="flex items-start space-x-2">
-                      <Icon name="Info" size={16} className="text-info mt-0.5" />
-                      <div>
-                        <p className="text-sm font-body text-info mb-1">Nouveau dans UniArchive ?</p>
-                        <p className="text-xs text-info font-caption">
-                          Consultez notre guide de démarrage rapide pour bien commencer.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Aide & Support : chaque entrée ouvre une ressource réelle */}
+              <HelpSupportCard />
             </div>
           </div>
 
-          {/* Footer */}
-          <footer className="mt-12 pt-8 border-t border-border">
-            <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-              <div className="flex items-center space-x-4 text-sm text-muted-foreground font-body">
-                <span>© {new Date()?.getFullYear()} UniArchive</span>
-                <span>•</span>
-                <span>Version 2.1.0</span>
-                <span>•</span>
-                <span>Conforme RGPD</span>
-              </div>
-              <div className="flex items-center space-x-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  iconName="Shield"
-                  iconPosition="left"
-                  iconSize={14}
-                  className="text-muted-foreground hover:text-foreground font-body"
-                >
-                  Politique de confidentialité
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  iconName="FileText"
-                  iconPosition="left"
-                  iconSize={14}
-                  className="text-muted-foreground hover:text-foreground font-body"
-                >
-                  Conditions d'utilisation
-                </Button>
-              </div>
-            </div>
-          </footer>
+          {/* Pied de page : liens légaux ouvrant leur contenu */}
+          <DashboardFooter />
         </div>
       </main>
     </div>

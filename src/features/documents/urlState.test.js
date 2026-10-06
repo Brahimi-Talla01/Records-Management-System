@@ -65,6 +65,19 @@ describe("état URL de la bibliothèque (F3)", () => {
     expect(toListQuery({ q: 'x' })).not.toHaveProperty('folder_id');
   });
 
+  it("gère le mode d'affichage grille/lignes", () => {
+    expect(parse('view=grid').view).toBe('grid');
+    expect(parse('view=table').view).toBe('table');
+    expect(parse('view=zzz').view).toBeNull();
+
+    // Le défaut (`table`) ne salit pas l'URL ; `grid` y est conservé.
+    expect(toSearchParams({ view: 'table' }).toString()).toBe('');
+    expect(toSearchParams({ view: 'grid' }).toString()).toBe('view=grid');
+
+    // L'affichage est un choix client : jamais envoyé à l'API.
+    expect(toListQuery({ view: 'grid' })).not.toHaveProperty('view');
+  });
+
   it("compte les filtres actifs hors dossier et hors tri", () => {
     expect(countActiveFilters({})).toBe(0);
     expect(countActiveFilters({ folder_id: 7, sort: 'title' })).toBe(0);

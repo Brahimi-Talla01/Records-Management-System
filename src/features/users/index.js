@@ -1,4 +1,5 @@
 export { usersApi, toUsersParams } from './api';
+export { buildUsersCsvTemplate, downloadUsersCsvTemplate } from './csvTemplate';
 export {
   useUsers,
   useUserStatistics,
