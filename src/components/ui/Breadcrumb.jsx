@@ -13,6 +13,7 @@ const Breadcrumb = ({ customItems = null }) => {
     '/document-upload': 'Téléchargement de documents',
     '/advanced-search': 'Recherche avancée',
     '/user-management': 'Gestion des utilisateurs',
+    '/help': "Centre d'aide",
   };
 
   // Segment d'ID (fiche document) : libellé neutre plutôt que le nombre brut

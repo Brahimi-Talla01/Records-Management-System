@@ -7,6 +7,9 @@
  *  - « Contacter le support » : coordonnées de l'établissement (API publique)
  *    + lien mailto, avec repli si elles ne sont pas renseignées ;
  *  - « Tutoriels » : parcours guidés qui ouvrent l'écran concerné.
+ *
+ * Un lien mène au centre d'aide complet (`/help`), également présent dans la
+ * navigation de toutes les pages.
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,52 +17,7 @@ import Button from '../../../components/ui/Button';
 import Icon from '../../../components/AppIcon';
 import Modal from '../../../components/ui/Modal';
 import { useInstitution } from '../../../features/campuses';
-
-const GUIDE_STEPS = [
-  {
-    title: 'Déposer un document',
-    text: 'Depuis « Télécharger », ajoutez un fichier, renseignez les métadonnées (type, département, confidentialité) puis validez.',
-  },
-  {
-    title: 'Retrouver vos archives',
-    text: 'La « Bibliothèque » liste les documents : filtrez par type, département ou étiquette, et basculez entre vue lignes et vue grille.',
-  },
-  {
-    title: 'Rechercher finement',
-    text: 'La « Recherche » interroge le titre, la description et le contenu (OCR) avec des filtres de dates et de confidentialité.',
-  },
-  {
-    title: 'Administrer (rôles Admin)',
-    text: 'L’espace « Administration » réunit les comptes, les référentiels, les réglages, l’audit et la rétention.',
-  },
-];
-
-const TUTORIALS = [
-  {
-    icon: 'Upload',
-    title: 'Déposer et indexer un document',
-    text: 'Parcours guidé du dépôt : fichier, métadonnées, version.',
-    path: '/document-upload',
-  },
-  {
-    icon: 'Search',
-    title: 'Rechercher dans les archives',
-    text: 'Mots-clés, filtres et facettes pour retrouver un document.',
-    path: '/advanced-search',
-  },
-  {
-    icon: 'FolderOpen',
-    title: 'Parcourir la bibliothèque',
-    text: 'Dossiers, filtres et vues lignes/grille.',
-    path: '/document-library',
-  },
-  {
-    icon: 'Users',
-    title: 'Gérer les comptes utilisateurs',
-    text: 'Création, import CSV, rôles et périmètre campus.',
-    path: '/user-management',
-  },
-];
+import { GUIDE_STEPS, TUTORIALS } from '../../../lib/help';
 
 const HelpSupportCard = () => {
   const navigate = useNavigate();
@@ -138,6 +96,18 @@ const HelpSupportCard = () => {
             </div>
           </div>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          fullWidth
+          iconName="ChevronRight"
+          iconPosition="right"
+          iconSize={16}
+          onClick={() => navigate('/help')}
+          className="font-body mt-3"
+        >
+          Ouvrir le centre d'aide
+        </Button>
       </div>
 
       <Modal

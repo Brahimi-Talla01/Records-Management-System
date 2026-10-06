@@ -31,4 +31,12 @@ describe('Header — espace Administration', () => {
     expect(button.className).toMatch(/\btext-foreground\b/);
     expect(button.className).not.toContain('text-primary-foreground');
   });
+
+  it('expose l’entrée « Aide » vers le centre d’aide (hors tableau de bord)', () => {
+    renderWithProviders(<Header user={{ name: 'Admin Démo', role: 'admin' }} />, {
+      route: '/dashboard',
+    });
+
+    expect(screen.getByRole('button', { name: 'Aide' })).toBeInTheDocument();
+  });
 });
