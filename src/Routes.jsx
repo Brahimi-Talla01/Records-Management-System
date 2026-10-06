@@ -15,6 +15,7 @@ const DocumentUpload = lazy(() => import('./pages/document-upload'));
 const AdvancedSearch = lazy(() => import('./pages/advanced-search'));
 const Account = lazy(() => import('./pages/account'));
 const Notifications = lazy(() => import('./pages/notifications'));
+const Help = lazy(() => import('./pages/help'));
 const ResetPassword = lazy(() => import('./pages/reset-password'));
 const Campuses = lazy(() => import('./pages/campuses'));
 const Settings = lazy(() => import('./pages/settings'));
@@ -36,6 +37,7 @@ const ROUTE_TITLES = {
   '/advanced-search': 'Recherche avancée',
   '/account': 'Mon compte',
   '/notifications': 'Notifications',
+  '/help': "Centre d'aide",
   '/reset-password': 'Réinitialisation du mot de passe',
   '/campuses': 'Campus',
   '/settings': 'Réglages',
@@ -190,6 +192,18 @@ const Routes = () => {
             <RouteShell>
               <RequireAuth>
                 <Notifications />
+              </RequireAuth>
+            </RouteShell>
+          }
+        />
+
+        {/* Centre d'aide : guide, tutoriels et support (hors tableau de bord) */}
+        <Route
+          path="/help"
+          element={
+            <RouteShell>
+              <RequireAuth>
+                <Help />
               </RequireAuth>
             </RouteShell>
           }

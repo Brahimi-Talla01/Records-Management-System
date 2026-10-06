@@ -64,6 +64,7 @@ const Header = ({ user = null, onLogout }) => {
     { label: 'Télécharger', path: '/document-upload', icon: 'Upload' },
     { label: 'Recherche', path: '/advanced-search', icon: 'Search' },
     { label: 'Mon compte', path: '/account', icon: 'User' },
+    { label: 'Aide', path: '/help', icon: 'HelpCircle' },
   ];
 
   const isActive = (path) => location?.pathname === path;
