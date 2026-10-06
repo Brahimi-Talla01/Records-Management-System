@@ -31,6 +31,23 @@ const ModalHarness = ({ onClose }) => {
   );
 };
 
+// Motif réel des modales de formulaire (référentiels, campus…) : l'état du
+// formulaire vit chez le parent, qui passe un `onClose` inline (identité
+// reconstruite à chaque frappe).
+const ModalFormHarness = () => {
+  const [open, setOpen] = useState(true);
+  const [value, setValue] = useState('');
+  return (
+    <Modal isOpen={open} onClose={() => setOpen(false)} title="Formulaire">
+      <Input
+        label="Nom"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+      />
+    </Modal>
+  );
+};
+
 describe('a11y — primitives (vitest-axe)', () => {
   it('Button sans violation', async () => {
     const { container } = render(<Button>Enregistrer</Button>);
@@ -128,6 +145,42 @@ describe('a11y — primitives (vitest-axe)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     // Le focus revient à l'élément déclencheur.
     expect(trigger).toHaveFocus();
+  });
+
+  it('Select searchable : le focus reste dans la recherche pendant la frappe', async () => {
+    const user = userEvent.setup();
+    render(
+      <Select
+        label="Département"
+        searchable
+        value=""
+        onChange={() => {}}
+        options={[
+          { value: 'a', label: 'Alpha' },
+          { value: 'b', label: 'Beta' },
+        ]}
+      />
+    );
+
+    await user.click(screen.getByRole('button'));
+    const search = screen.getByLabelText('Rechercher une option');
+    await user.click(search);
+    await user.type(search, 'Al');
+
+    expect(search).toHaveFocus();
+    expect(search).toHaveValue('Al');
+  });
+
+  it('Modal : le focus reste dans le champ pendant la frappe (onClose inline)', async () => {
+    const user = userEvent.setup();
+    render(<ModalFormHarness />);
+
+    const input = screen.getByLabelText(/Nom/);
+    await user.click(input);
+    await user.keyboard('abc');
+
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue('abc');
   });
 
   it('SkipLink : pointe vers le contenu principal', () => {

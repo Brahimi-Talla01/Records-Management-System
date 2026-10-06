@@ -45,6 +45,19 @@ const Header = ({ user = null, onLogout }) => {
       : []),
   ];
 
+  // L'espace Administration est « actif » dès qu'une de ses pages est ouverte :
+  // le bouton passe alors en variante pleine (fond `primary`) et doit donc
+  // porter le texte `primary-foreground` (blanc), jamais `foreground`.
+  const adminSectionActive = [
+    '/user-management',
+    '/settings',
+    '/campuses',
+    '/audit',
+    '/retention',
+    '/permissions',
+    '/referentials',
+  ].some((path) => location.pathname.startsWith(path));
+
   const navigationItems = [
     { label: 'Tableau de bord', path: '/dashboard', icon: 'LayoutDashboard' },
     { label: 'Bibliothèque', path: '/document-library', icon: 'FolderOpen' },
@@ -129,7 +142,7 @@ const Header = ({ user = null, onLogout }) => {
           {admin && (
             <div className="relative ml-2 pl-2 border-l border-border">
               <Button
-                variant={location.pathname.startsWith('/user-management') || location.pathname.startsWith('/settings') || location.pathname.startsWith('/campuses') || location.pathname.startsWith('/audit') || location.pathname.startsWith('/retention') || location.pathname.startsWith('/permissions') || location.pathname.startsWith('/referentials') ? "default" : "ghost"}
+                variant={adminSectionActive ? "default" : "ghost"}
                 size="sm"
                 iconName="Shield"
                 iconPosition="left"
@@ -137,7 +150,11 @@ const Header = ({ user = null, onLogout }) => {
                 onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
                 aria-haspopup="menu"
                 aria-expanded={isAdminMenuOpen}
-                className="font-body font-medium transition-colors text-foreground hover:text-primary"
+                className={`font-body font-medium transition-colors ${
+                  adminSectionActive
+                    ? 'text-primary-foreground'
+                    : 'text-foreground hover:text-primary'
+                }`}
               >
                 Administration
               </Button>

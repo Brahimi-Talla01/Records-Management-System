@@ -6,7 +6,14 @@ import Button from '../../../components/ui/Button';
  * Les actions groupées sont **masquées** tant que `POST /api/users/bulk`
  * n'existe pas côté backend (décision Q7, ligne R6‑02, P7).
  */
-const UserActions = ({ stats = {}, onAddUser, onImportUsers, onExportUsers, importPending }) => (
+const UserActions = ({
+  stats = {},
+  onAddUser,
+  onImportUsers,
+  onDownloadTemplate,
+  onExportUsers,
+  importPending,
+}) => (
   <div className="bg-card border border-border rounded-lg p-4 shadow-card">
     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -31,6 +38,18 @@ const UserActions = ({ stats = {}, onAddUser, onImportUsers, onExportUsers, impo
           className="font-body"
         >
           Importer CSV
+        </Button>
+
+        <Button
+          variant="ghost"
+          iconName="FileSpreadsheet"
+          iconPosition="left"
+          iconSize={16}
+          onClick={onDownloadTemplate}
+          title="Télécharger le modèle CSV à remplir"
+          className="font-body"
+        >
+          Modèle CSV
         </Button>
 
         <Button

@@ -17,6 +17,7 @@ import { useConfirm } from '../../components/ui/useConfirm';
 import FolderNavigation from './components/FolderNavigation';
 import DocumentFilters from './components/DocumentFilters';
 import DocumentTable from './components/DocumentTable';
+import DocumentGrid from './components/DocumentGrid';
 import BulkActionBar from './components/BulkActionBar';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import { useAuth, isAdmin, hasRole } from '../../features/auth';
@@ -102,6 +103,12 @@ const DocumentLibrary = () => {
 
   const handleSort = (column) => {
     const nextOrder = view.sort === column && view.order === 'asc' ? 'desc' : 'asc';
+    patchView({ sort: column, order: nextOrder, page: 1, cursor: null });
+  };
+
+  // Vue grille : le tri n'a plus d'en-têtes de colonnes, il est choisi par un
+  // sélecteur qui fixe explicitement la colonne ET le sens.
+  const handleSortSelect = (column, nextOrder) => {
     patchView({ sort: column, order: nextOrder, page: 1, cursor: null });
   };
 
@@ -221,6 +228,8 @@ const DocumentLibrary = () => {
   const goNextKeyset = () =>
     patchView({ cursor: data?.next_cursor || null, page: (view.page || 1) + 1 });
 
+  const viewMode = view.view === 'grid' ? 'grid' : 'table';
+
   const activeFilters = countActiveFilters(view);
   const resultsLabel = data
     ? `${data.total ?? data.items?.length ?? 0} document${
@@ -249,6 +258,35 @@ const DocumentLibrary = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {/* Bascule grille / lignes (choix d'affichage conservé dans l'URL) */}
+              <div
+                className="inline-flex items-center rounded-md border border-border overflow-hidden"
+                role="group"
+                aria-label="Mode d'affichage"
+              >
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  aria-pressed={viewMode === 'table'}
+                  aria-label="Affichage en lignes"
+                  title="Affichage en lignes"
+                  onClick={() => patchView({ view: 'table' })}
+                  className="rounded-none"
+                >
+                  <Icon name="List" size={16} />
+                </Button>
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  aria-pressed={viewMode === 'grid'}
+                  aria-label="Affichage en grille"
+                  title="Affichage en grille"
+                  onClick={() => patchView({ view: 'grid' })}
+                  className="rounded-none"
+                >
+                  <Icon name="Grid3X3" size={16} />
+                </Button>
+              </div>
               <Button
                 variant="outline"
                 iconName="Download"
@@ -326,42 +364,80 @@ const DocumentLibrary = () => {
             />
           </div>
 
-          {/* Tableau */}
-          <DocumentTable
-            documents={documents}
-            isLoading={documentsQuery.isLoading}
-            selected={selected}
-            onToggle={handleToggle}
-            onToggleAll={handleToggleAll}
-            onOpen={handleOpen}
-            onPreview={setPreviewDocument}
-            onSort={handleSort}
-            sort={view.sort || 'created_at'}
-            order={view.order || 'desc'}
-            canEdit={canWriteFolders}
-            canDelete={canDeleteDocuments}
-            isDeletedView={isDeletedView}
-            onRestore={handleRestoreOne}
-            onDelete={handleDeleteOne}
-            emptyTitle={isDeletedView ? 'Corbeille vide' : 'Aucun document'}
-            emptyDescription={
-              isDeletedView
-                ? 'Aucun document dans la corbeille.'
-                : 'Aucun document ne correspond aux critères de recherche.'
-            }
-            emptyAction={
-              !isDeletedView && activeFilters === 0 ? (
-                <Button
-                  variant="default"
-                  iconName="Upload"
-                  iconPosition="left"
-                  onClick={() => navigate('/document-upload')}
-                >
-                  Déposer un premier document
-                </Button>
-              ) : null
-            }
-          />
+          {/* Liste : tableau (lignes) ou cartes (grille) */}
+          {viewMode === 'grid' ? (
+            <DocumentGrid
+              documents={documents}
+              isLoading={documentsQuery.isLoading}
+              selected={selected}
+              onToggle={handleToggle}
+              onToggleAll={handleToggleAll}
+              onOpen={handleOpen}
+              onPreview={setPreviewDocument}
+              onChangeSort={handleSortSelect}
+              sort={view.sort || 'created_at'}
+              order={view.order || 'desc'}
+              canEdit={canWriteFolders}
+              canDelete={canDeleteDocuments}
+              isDeletedView={isDeletedView}
+              onRestore={handleRestoreOne}
+              onDelete={handleDeleteOne}
+              emptyTitle={isDeletedView ? 'Corbeille vide' : 'Aucun document'}
+              emptyDescription={
+                isDeletedView
+                  ? 'Aucun document dans la corbeille.'
+                  : 'Aucun document ne correspond aux critères de recherche.'
+              }
+              emptyAction={
+                !isDeletedView && activeFilters === 0 ? (
+                  <Button
+                    variant="default"
+                    iconName="Upload"
+                    iconPosition="left"
+                    onClick={() => navigate('/document-upload')}
+                  >
+                    Déposer un premier document
+                  </Button>
+                ) : null
+              }
+            />
+          ) : (
+            <DocumentTable
+              documents={documents}
+              isLoading={documentsQuery.isLoading}
+              selected={selected}
+              onToggle={handleToggle}
+              onToggleAll={handleToggleAll}
+              onOpen={handleOpen}
+              onPreview={setPreviewDocument}
+              onSort={handleSort}
+              sort={view.sort || 'created_at'}
+              order={view.order || 'desc'}
+              canEdit={canWriteFolders}
+              canDelete={canDeleteDocuments}
+              isDeletedView={isDeletedView}
+              onRestore={handleRestoreOne}
+              onDelete={handleDeleteOne}
+              emptyTitle={isDeletedView ? 'Corbeille vide' : 'Aucun document'}
+              emptyDescription={
+                isDeletedView
+                  ? 'Aucun document dans la corbeille.'
+                  : 'Aucun document ne correspond aux critères de recherche.'
+              }
+              emptyAction={
+                !isDeletedView && activeFilters === 0 ? (
+                  <Button
+                    variant="default"
+                    iconName="Upload"
+                    iconPosition="left"
+                    onClick={() => navigate('/document-upload')}
+                  >
+                    Déposer un premier document
+                  </Button>
+                ) : null
+              }
+            />
+          )}
 
           {/* Pagination */}
           {documents.length > 0 && (

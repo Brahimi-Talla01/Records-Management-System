@@ -30,6 +30,7 @@ import {
   useDeleteUser,
   useResetUserPassword,
   useImportUsers,
+  downloadUsersCsvTemplate,
 } from '../../features/users';
 import { useCampusScope } from '../../features/campuses';
 import {
@@ -222,6 +223,13 @@ const UserManagement = () => {
 
   const handleImportUsers = () => fileInputRef.current?.click();
 
+  // Modèle CSV à remplir : en-tête attendu par le serveur + ligne d'exemple,
+  // avec les identifiants de rôle/département réellement chargés.
+  const handleDownloadTemplate = () => {
+    downloadUsersCsvTemplate({ roles, departments });
+    toast.success('Modèle CSV téléchargé.');
+  };
+
   const handleImportFile = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = ''; // permet de réimporter le même fichier
@@ -282,6 +290,7 @@ const UserManagement = () => {
                   setIsModalOpen(true);
                 }}
                 onImportUsers={handleImportUsers}
+                onDownloadTemplate={handleDownloadTemplate}
                 onExportUsers={handleExportUsers}
                 importPending={importUsers.isPending}
               />

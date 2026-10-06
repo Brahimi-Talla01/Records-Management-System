@@ -25,6 +25,15 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   const dialogRef = useRef(null);
   const restoreRef = useRef(null);
 
+  // `onClose` arrive presque toujours en fonction inline (nouvelle identité à
+  // chaque rendu du parent). L'effet de piégeage ne doit pas dépendre de cette
+  // identité : sinon il se rejoue à chaque frappe et le focus saute hors du
+  // champ en cours de saisie. On lit donc la dernière version via une ref.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!isOpen) return undefined;
 
@@ -39,7 +48,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (event.key !== 'Tab') return;
@@ -65,7 +74,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
       document.removeEventListener('keydown', onKeyDown, true);
       restoreRef.current?.focus?.();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
