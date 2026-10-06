@@ -32,6 +32,26 @@ describe("centre d'aide (page /help)", () => {
     );
   });
 
+  it('filtre le guide et les tutoriels (insensible aux accents)', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Help />, { route: '/help' });
+
+    await user.type(screen.getByLabelText("Rechercher dans le centre d'aide"), 'bibliotheque');
+
+    expect(screen.getByText('Parcourir la bibliothèque')).toBeInTheDocument();
+    expect(screen.queryByText('Déposer et indexer un document')).not.toBeInTheDocument();
+    expect(screen.getByText(/résultat/)).toBeInTheDocument();
+  });
+
+  it('affiche un état vide quand la recherche ne correspond à rien', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Help />, { route: '/help' });
+
+    await user.type(screen.getByLabelText("Rechercher dans le centre d'aide"), 'zzzz');
+
+    expect(screen.getByText('Aucun résultat')).toBeInTheDocument();
+  });
+
   it('un tutoriel mène à l’écran concerné', async () => {
     const user = userEvent.setup();
     renderWithProviders(
