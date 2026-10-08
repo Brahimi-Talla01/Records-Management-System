@@ -1,0 +1,234 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+/*
+ * SOURCE UNIQUE DE STYLE DE L'APPLICATION.
+ *
+ * Règle : un composant ne connaît que des *noms* de tokens (`bg-primary`,
+ * `text-foreground`, `border-border`). Aucune palette Tailwind brute
+ * (`bg-blue-500`), aucune valeur arbitraire (`bg-[#…]`) et aucun `style={{ color }}`
+ * ne sont autorisés — la règle ESLint `no-restricted-syntax` les défend.
+ *
+ * Les utilitaires sont générés automatiquement par Tailwind v4 à partir de
+ * `--color-<nom>` (ex. `--color-primary` → `bg-primary`, `text-primary`).
+ *
+ * Jeu canonique :
+ *   fond/texte   : background, foreground, card, popover, muted
+ *   marques      : primary, secondary, accent
+ *   statuts      : success, warning, error, info  (chacun avec `-foreground`)
+ *   interface    : border, input, ring
+ */
+@theme {
+  /* Fonts */
+  --font-inter: 'Inter', sans-serif;
+  --font-source-sans: 'Source Sans Pro', sans-serif;
+  --font-roboto: 'Roboto', sans-serif;
+  --font-jetbrains: 'JetBrains Mono', monospace;
+
+  /* Fond / texte */
+  --color-background: #F8FAFC;
+  --color-foreground: #0F172A;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #0F172A;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #0F172A;
+  --color-muted: #F1F5F9;
+  --color-muted-foreground: #64748B;
+
+  /* Interface */
+  --color-border: #E2E8F0;
+  --color-input: #FFFFFF;
+  --color-ring: #1E3A8A;
+
+  /* Marques */
+  --color-primary: #1E3A8A;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #64748B;
+  --color-secondary-foreground: #FFFFFF;
+  --color-accent: #0EA5E9;
+  --color-accent-foreground: #FFFFFF;
+
+  /* Statuts — un seul jeu, jamais de `destructive` */
+  --color-success: #059669;
+  --color-success-foreground: #FFFFFF;
+  --color-warning: #D97706;
+  --color-warning-foreground: #FFFFFF;
+  --color-error: #DC2626;
+  --color-error-foreground: #FFFFFF;
+  --color-info: #0284C7;
+  --color-info-foreground: #FFFFFF;
+
+  /* Rayons */
+  --radius-lg: 0.5rem;
+  --radius-md: 0.375rem;
+  --radius-sm: 0.25rem;
+
+  /* Ombres */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-modal: 0 10px 25px rgba(0, 0, 0, 0.15);
+
+  /* Transitions */
+  --transition-base: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-inter);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-inter);
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  ul, ol {
+    list-style: none;
+  }
+
+  img, picture, video, canvas, svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  input, button, textarea, select {
+    font: inherit;
+  }
+
+  button {
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* Focus visible global : anneau sur tout élément interactif, même sans
+     classe d'anneau dédiée. `:where()` garde la spécificité à 0 pour laisser
+     les utilitaires (`focus:outline-none focus:ring-2`) reprendre la main. */
+  :where(a, button, [role='button'], input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* ============================================
+   Utilities
+   ============================================ */
+@layer utilities {
+  /* Font Families */
+  .font-heading { font-family: var(--font-inter); }
+  .font-body { font-family: var(--font-source-sans); }
+  .font-caption { font-family: var(--font-roboto); }
+  .font-mono { font-family: var(--font-jetbrains); }
+
+  /* Border Radius */
+  .rounded-custom-lg { border-radius: var(--radius-lg); }
+  .rounded-custom-md { border-radius: var(--radius-md); }
+  .rounded-custom-sm { border-radius: var(--radius-sm); }
+
+  /* Shadows */
+  .shadow-card { box-shadow: var(--shadow-card); }
+  .shadow-modal { box-shadow: var(--shadow-modal); }
+
+  /* Scrollbar Styling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  .scrollbar-thin { scrollbar-width: thin; }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: var(--color-muted);
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--color-muted-foreground);
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--color-foreground);
+  }
+
+  /* Animations */
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slide-in-from-top {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes slide-in-from-bottom {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .animate-fade-in { animation: fade-in 0.3s ease-out; }
+  .animate-slide-in-top { animation: slide-in-from-top 0.3s ease-out; }
+  .animate-slide-in-bottom { animation: slide-in-from-bottom 0.3s ease-out; }
+
+  /* Focus Visible */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+
+  /* Truncate with custom lines */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+@media print {
+  @page { margin: 1cm; }
+
+  body { @apply text-black bg-white; }
+
+  .no-print { display: none !important; }
+}

@@ -1,0 +1,110 @@
+import React from "react";
+import { cn } from "../../utils/cn";
+
+const Input = React.forwardRef(({
+    className,
+    type = "text",
+    label,
+    description,
+    error,
+    required = false,
+    id,
+    ...props
+}, ref) => {
+    // Generate unique ID if not provided
+    const inputId = id || `input-${Math.random()?.toString(36)?.substr(2, 9)}`;
+
+    // Base input classes
+    const baseInputClasses = "flex h-10 w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
+    // Liaison accessible : la description et le message d'erreur sont annoncés au champ.
+    const descriptionId = `${inputId}-description`;
+    const errorId = `${inputId}-error`;
+    const describedBy =
+        [description && !error ? descriptionId : null, error ? errorId : null]
+            .filter(Boolean)
+            .join(' ') || undefined;
+
+    // Checkbox-specific styles
+    if (type === "checkbox") {
+        return (
+            <input
+                type="checkbox"
+                className={cn(
+                    "h-4 w-4 rounded border border-border bg-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                    className
+                )}
+                ref={ref}
+                id={inputId}
+                required={required}
+                {...props}
+            />
+        );
+    }
+
+    // Radio button-specific styles
+    if (type === "radio") {
+        return (
+            <input
+                type="radio"
+                className={cn(
+                    "h-4 w-4 rounded-full border border-border bg-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                    className
+                )}
+                ref={ref}
+                id={inputId}
+                required={required}
+                {...props}
+            />
+        );
+    }
+
+    // For regular inputs with wrapper structure
+    return (
+        <div className="space-y-2">
+            {label && (
+                <label
+                    htmlFor={inputId}
+                    className={cn(
+                        "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+                        error ? "text-error" : "text-foreground"
+                    )}
+                >
+                    {label}
+                    {required && <span className="text-error ml-1">*</span>}
+                </label>
+            )}
+
+            <input
+                type={type}
+                className={cn(
+                    baseInputClasses,
+                    error && "border-error focus-visible:ring-error",
+                    className
+                )}
+                ref={ref}
+                id={inputId}
+                required={required}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={describedBy}
+                {...props}
+            />
+
+            {description && !error && (
+                <p id={descriptionId} className="text-sm text-muted-foreground">
+                    {description}
+                </p>
+            )}
+
+            {error && (
+                <p id={errorId} role="alert" className="text-sm text-error">
+                    {error}
+                </p>
+            )}
+        </div>
+    );
+});
+
+Input.displayName = "Input";
+
+export default Input;

@@ -1,0 +1,89 @@
+{
+  "name": "uniarchive",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "size": "size-limit",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:install": "playwright install --with-deps chromium",
+    "e2e:report": "playwright show-report",
+    "codegen": "openapi-typescript http://localhost:5000/api/openapi.json -o src/lib/schema/api.d.ts"
+  },
+  "size-limit": [
+    {
+      "name": "JS initial (entrée + vendors hors graphes)",
+      "path": [
+        "dist/assets/index-*.js",
+        "dist/assets/chunk-vendor-*.js"
+      ],
+      "limit": "200 kB"
+    },
+    {
+      "name": "Chunk graphes (lazy dashboard)",
+      "path": [
+        "dist/assets/chunk-charts-*.js"
+      ],
+      "limit": "120 kB"
+    }
+  ],
+  "dependencies": {
+    "@dhiwise/component-tagger": "^1.0.10",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/vite": "^4.1.13",
+    "@tanstack/react-query": "^5.104.0",
+    "@testing-library/jest-dom": "^6.9.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "axios": "^1.12.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "d3": "^7.9.0",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
+    "framer-motion": "^12.23.22",
+    "lucide-react": "^0.544.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-helmet": "^6.1.0",
+    "react-hook-form": "^7.63.0",
+    "react-router-dom": "^7.9.3",
+    "react-router-hash-link": "^2.4.3",
+    "recharts": "^3.2.1",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^4.1.13",
+    "tailwindcss-animate": "^1.0.7",
+    "tailwindcss-fluid-type": "^2.0.7",
+    "zod": "^4.6.5",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@playwright/test": "^1.63.0",
+    "@size-limit/file": "^13.1.1",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.3",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.4.0",
+    "jsdom": "^29.1.1",
+    "msw": "^2.15.0",
+    "openapi-typescript": "^7.13.0",
+    "size-limit": "^13.1.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7",
+    "vitest": "^5.0.3",
+    "vitest-axe": "^0.1.0"
+  }
+}
