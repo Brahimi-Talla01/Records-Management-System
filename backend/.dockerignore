@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.py[cod]
+instance/
+.env
+.git/
+.gitignore
+tests/
+*.md
+uploads/
+# migrations/ ne doit PAS être ignoré : docker-entrypoint.sh exécute
+# `flask_migrate.upgrade()` (stamp baseline + index P0.9) au démarrage.
+Dockerfile
+.dockerignore

@@ -1,0 +1,149 @@
+# UniArchive — Backend
+
+API Flask du projet UniArchive (gestion d'archives numériques multi-campus).
+
+## Démarrage
+
+### Docker (recommandé)
+
+```bash
+docker compose up -d --build        # stack complète (db, redis, backend, scheduler, frontend)
+docker compose logs -f backend      # le code 2FA est loggé si aucun SMTP n'est configuré
+```
+
+L'application est servie sur `http://localhost:8080` (Nginx proxifie `/api`).
+Un service `scheduler` exécute le job de rétention toutes les 24 h
+(`RETENTION_INTERVAL_SECONDS` pour changer l'intervalle).
+
+### Développement local
+
+```bash
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+export FLASK_ENV=development DATABASE_URL=sqlite:///instance/uniarchive.db
+flask run
+```
+
+## Base de données
+
+L'entrypoint Docker exécute `create_all()` puis Alembic (stamp baseline
+`23042faea7a9` → migrations). Sur une base préexistante, seule la migration
+Alembic s'applique.
+
+```bash
+flask db upgrade                    # appliquer les migrations
+flask db downgrade -- -1            # revenir d'une révision
+```
+
+Révisions : `e5f0a1b2c3d4` (index P0) → `f1a2b3c4d5e6` (campus/réglages P1) →
+`b4c5d6e7f8a9` (full-text P4) → `c5d6e7f8a9b0` (rétention P5).
+
+## Seeds
+
+```bash
+flask seed all        # institution, campus PRINCIPAL, réglages, rôles, dossiers,
+                      # types, départements, admin, comptes démo (idempotent)
+flask seed roles | doctypes | departments | admin | demo | …
+```
+
+Comptes livrés : `admin` / `Admin@2024` (super admin) et `prof`, `secretaire`,
+`etudiant` / `Demo@2024`.
+
+## Rétention (P5)
+
+```bash
+flask retention run --dry-run    # simulation (préavis, archivage, purge)
+flask retention run              # exécution réelle
+flask retention status           # compteurs + dernier rapport
+```
+
+Politique pilotée par les réglages `archives.retention_*` (API
+`/api/settings`) : préavis (`retention_warning_days`), archivage automatique
+(`retention_auto_archive`), purge (`retention_purge_after_days`).
+Déclenchement manuel : `POST /api/admin/retention/run` (super admin).
+
+## OCR (P6)
+
+Réglage `features.ocr_enabled` (`PUT /api/settings`), **éteint par défaut**. Activé, il extrait le
+texte à chaque dépôt pour remplir `document.ocr_text` (poids C du vecteur de recherche) :
+
+- **PDF** : couche texte native (`pypdf`, jusqu'à `OCR_MAX_PDF_PAGES` pages) ;
+- **images** (png/jpeg/tiff) : Tesseract (`OCR_LANGUAGES`, défaut `fra+eng`), binaire installé
+  dans l'image Docker (`tesseract-ocr` + `tesseract-ocr-fra`) ; délai borne par
+  `OCR_TIMEOUT_SECONDS` (30 s).
+
+L'extraction est **best-effort** : moteur absent, fichier illisible ou délai dépassé → `ocr_text`
+reste vide et le dépôt réussit quand même.
+
+## Chiffrement au repos (P6)
+
+Deux variables, toutes deux **facultatives** : sans clé, rien n'est chiffré et les fichiers déjà
+présents restent lisibles.
+
+```bash
+python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"  # générer la clé
+export FILE_ENCRYPTION_KEY='<base64 de 32 octets>'
+export ENCRYPTED_LEVELS='confidential,secret'   # niveaux chiffrés à l'upload
+```
+
+- **Format** : `UNIARCH\x01` puis des blocs AES-GCM de 64 Ko (nonce 12 octets, AAD = index du
+  bloc) — la marque suffit à savoir, à la lecture, si un fichier doit être déchiffré.
+- **Champ protégé** : à l'upload, un document dont le niveau figure dans `ENCRYPTED_LEVELS` est
+  scellé ; `checksum` et `size_bytes` décrivent alors le **clair**, `document.is_encrypted` passe
+  à `true`. Téléchargement, aperçu et OCR déchiffrent à la volée.
+- **Clé mal formée** : le démarrage échoue (`RuntimeError`) plutôt que le premier téléchargement.
+
+## Stockage objet S3/MinIO (P6)
+
+Le stockage local reste le défaut ; `STORAGE_BACKEND=s3` bascule `app/storage/` sur `S3Storage`
+(même interface `save/open/exists/delete`, mêmes retours `{path, size, checksum}`) :
+
+```bash
+export STORAGE_BACKEND=s3
+export S3_ENDPOINT_URL='http://minio:9000'   # vide pour AWS S3
+export S3_REGION='eu-west-1'
+export S3_BUCKET='uniarchive'
+export S3_ACCESS_KEY='...' S3_SECRET_KEY='...'
+export S3_PREFIX='uniarchive'                # clé racine dans le bucket
+export S3_FORCE_PATH_STYLE=true              # obligatoire pour MinIO
+```
+
+- **Sans bucket, pas de démarrage** : `S3_BUCKET` vide + `STORAGE_BACKEND=s3` → `RuntimeError`.
+- **Interopérabilité** : chiffrement au repos, OCR et purge de rétention passent par la même
+  interface — ils fonctionnent à l'identique sur S3.
+- **Écriture** : l'objet est mis en tampon (8 Mo max en mémoire) pour le multipart et pour
+  calculer l'empreinte SHA-256 du contenu écrit ; `LocalStorage` n'est pas modifié.
+
+## Performance (P6)
+
+```bash
+flask perf explain           # EXPLAIN ANALYZE (PostgreSQL) / QUERY PLAN (SQLite), 10 requêtes
+flask perf explain --json    # sortie diffable
+```
+
+Les dix requêtes suivies (listing, plein texte, facettes, échéances, audit, notifications) doivent
+toutes passer par un index : toute régression se lit dans la sortie de la commande.
+
+**Pagination clé** sur `GET /api/documents` : `?pagination=keyset[&per_page=]` renvoie
+`{items, per_page, has_more, next_cursor}` **sans `COUNT(*)`**, puis `&cursor=<next_cursor>` pour la
+page suivante — le coût d'une page est indépendant de sa position (utile au-delà de 100 k
+documents). Le mode `offset` (défaut) garde son contrat `page/total/pages` ; un curseur émis pour
+un autre tri répond `400 cursor_invalid`, et `sort=size_bytes` (nullable) `400
+cursor_unsupported_sort`.
+
+## Tests & qualité
+
+```bash
+venv/bin/python -m pytest                 # suite complète (SQLite en mémoire)
+venv/bin/ruff check .                     # lint (E9 + F)
+npx pyright@1.1.414                       # typage statique, 0 erreur exigé
+pytest --cov=app --cov-report=term        # couverture
+```
+
+La CI (`.github/workflows/ci.yml`) rejoue exactement ces étapes et ajoute
+PostgreSQL 16 + Redis 7 + `docker build`.
+
+## Documentation API
+
+Voir `../assets/08_api_reference.md` (contrat complet : routes, paramètres,
+erreurs, exemples).

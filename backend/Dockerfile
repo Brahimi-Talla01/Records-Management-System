@@ -1,0 +1,27 @@
+# UniArchive — Backend Flask
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# OCR (P6) : Tesseract + pack de langues français/anglais
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
+# Dépendances d'abord (cache des couches Docker)
+COPY requirements.txt .
+RUN pip install --no-cache-dir --timeout 120 -r requirements.txt
+
+# Code applicatif
+COPY . .
+
+# Répertoire des uploads (monté sur un volume nommé dans docker-compose.yml)
+# + entrypoint exécutable
+RUN mkdir -p /app/uploads && chmod +x docker-entrypoint.sh
+
+EXPOSE 5000
+
+ENTRYPOINT ["./docker-entrypoint.sh"]

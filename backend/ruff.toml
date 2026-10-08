@@ -1,0 +1,30 @@
+# Ruff — configuration linter (P0.7 du plan 07)
+#
+#   venv/bin/ruff check .            # vérification
+#   venv/bin/ruff check --fix .      # correction automatique des F401/F841
+#
+# Périmètre volontairement réduit pour démarrer :
+#   E9 — erreurs de syntaxe qui cassent l'exécution (E902 inclus)
+#   F  — pyflakes : imports morts, variables inutilisées, noms non définis,
+#        redéfinitions, dépendances circulaires d'imports
+# Les règles de style (E/W codestyle, I isort, UP…) sont laissées pour la
+# phase P5 (« durcissement ») : ajouter « I » et « UP » ici ne casse rien
+# d'autre que du formatage.
+target-version = "py312"
+line-length = 100
+
+exclude = [
+    "venv",
+    "__pycache__",
+    "instance",
+    "uploads",
+    ".pytest_cache",
+]
+
+[lint]
+select = ["E9", "F"]
+
+[lint.per-file-ignores]
+# conftest : les imports sont positionnels (« noqa: E402 » déjà posés) et les
+# fixtures sont injectées par pytest, donc « F401 » y est un faux positif.
+"tests/*" = ["F401"]

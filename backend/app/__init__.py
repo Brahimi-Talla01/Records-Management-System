@@ -1,0 +1,197 @@
+import os
+
+from flask import Flask, jsonify
+from flask_migrate import Migrate
+from sqlalchemy import text
+
+from config import config
+from extensions import db, bcrypt, cors, mail, limiter
+
+migrate = Migrate()
+
+
+def create_app(config_name='default'):
+    """Factory pour créer l'application Flask"""
+    application = Flask(__name__)
+
+    # Charger la configuration
+    application.config.from_object(config[config_name])
+
+    # Chiffrement au repos (P6) : une clé mal formée doit refuser le démarrage
+    # plutôt que de se révéler au premier téléchargement.
+    if application.config.get('FILE_ENCRYPTION_KEY'):
+        from app.storage.crypto import CryptoError, parse_key
+        try:
+            parse_key(application.config['FILE_ENCRYPTION_KEY'])
+        except CryptoError as exc:
+            raise RuntimeError(f'FILE_ENCRYPTION_KEY invalide : {exc}') from exc
+
+    # Stockage objet (P6) : pas de bucket, pas de démarrage.
+    if application.config.get('STORAGE_BACKEND') == 's3' and \
+            not application.config.get('S3_BUCKET'):
+        raise RuntimeError("S3_BUCKET doit être défini quand STORAGE_BACKEND=s3.")
+
+    # Sécurité : en production, refuser les secrets par défaut du développement
+    if config_name == 'production':
+        if application.config['SECRET_KEY'] == 'dev-secret-key-change-in-production':
+            raise RuntimeError(
+                "SECRET_KEY doit être défini via la variable d'environnement en production."
+            )
+        if not application.config.get('SQLALCHEMY_DATABASE_URI'):
+            raise RuntimeError("DATABASE_URL doit être défini en production.")
+
+    # Initialiser les extensions
+    db.init_app(application)
+    migrate.init_app(application, db)
+    bcrypt.init_app(application)
+    # CORS : origine(s) du frontend (env + defaults dev 5173/3000)
+    _frontend_origins = [
+        application.config.get('FRONTEND_URL', 'http://localhost:5173'),
+        'http://localhost:5173',
+        'http://localhost:3000',
+    ]
+    cors.init_app(application, resources={
+        r"/api/*": {
+            "origins": list(dict.fromkeys(_frontend_origins)),
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "X-CSRF-Token", "Authorization"],
+            "supports_credentials": True,  # obligatoire pour les cookies de session
+        }
+    }, supports_credentials=True)
+    mail.init_app(application)
+
+    # Headers de sécurité (Talisman) — redirection HTTPS seulement si FORCE_HTTPS
+    from flask_talisman import Talisman
+    talisman = Talisman(
+        application,
+        force_https=application.config.get('FORCE_HTTPS', False),
+        strict_transport_security=application.config.get('FORCE_HTTPS', False),
+        # Talisman écrase ces deux réglages par ses défauts : sans les lui
+        # transmettre, `SESSION_COOKIE_SECURE=false` serait ignoré et les
+        # cookies deviendraient `Secure` derrière un proxy HTTP.
+        session_cookie_secure=application.config.get('SESSION_COOKIE_SECURE', False),
+        session_cookie_samesite=application.config.get('SESSION_COOKIE_SAMESITE', 'Lax'),
+        content_security_policy={
+            'default-src': ["'self'"],
+            'img-src': ["'self'", 'data:'],
+            'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+            'font-src': ["'self'", 'https://fonts.gstatic.com'],
+        },
+    )
+
+    # Derrière un reverse proxy : faire confiance aux headers X-Forwarded-*
+    if application.config.get('BEHIND_PROXY'):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        application.wsgi_app = ProxyFix(application.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    # Rate limiting : le storage vient de app.config['RATELIMIT_STORAGE_URI']
+    # (config.py → env RATELIMIT_STORAGE_URI / REDIS_URL / memory://).
+    # L'ancienne ligne `limiter.storage_uri = ...` était sans effet : Flask-Limiter
+    # ne lit jamais cet attribut (il lit `self._storage_uri` et la config).
+    limiter.init_app(application)
+
+    # Store de sessions (Redis si disponible, sinon mémoire)
+    from app.services.session_service import init_session_store
+    init_session_store(application)
+
+    # IMPORTANT: Importer tous les modèles APRÈS l'initialisation de db.
+    # Cet import a un effet de bord : il enregistre chaque `Table` dans le
+    # metadata de `extensions.db`, sans quoi `create_all()` ne créerait que
+    # les tables déjà importées ailleurs (et donc des schémas incomplets).
+    with application.app_context():
+        import app.models  # noqa: F401  (enregistrement des modèles, volontaire)
+
+    # Enveloppe d'erreur standardisée ({"error","code","details"}) + normalisation
+    from app.errors import register_error_handlers
+    register_error_handlers(application)
+
+    # Journal d'audit : filet de sécurité sur toutes les mutations (POST/PUT/PATCH/DELETE)
+    from app.services.audit_service import register_audit_hook
+    register_audit_hook(application)
+
+    # Enregistrer les blueprints
+    from app.auth.routes import auth_bp
+    application.register_blueprint(auth_bp)
+
+    # Enregistrer le blueprint users
+    from app.users.routes import users_bp
+    application.register_blueprint(users_bp)
+
+    from app.campuses.routes import campuses_bp
+    from app.settings.routes import settings_bp
+    from app.folders.routes import folders_bp
+    from app.permissions.routes import permissions_bp
+    from app.referentials.routes import referentials_bp
+    application.register_blueprint(campuses_bp)
+    application.register_blueprint(settings_bp)
+    application.register_blueprint(folders_bp)
+    application.register_blueprint(permissions_bp)
+    application.register_blueprint(referentials_bp)
+
+    # Enregistrer les blueprints documents / dashboard / search / notifications
+    from app.documents.routes import documents_bp
+    from app.dashboard.routes import dashboard_bp
+    from app.search.routes import search_bp
+    from app.notifications.routes import notifications_bp
+    application.register_blueprint(documents_bp, url_prefix='/api/documents')
+    application.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
+    application.register_blueprint(search_bp, url_prefix='/api/search')
+    application.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+
+    # Enregistrer les blueprints audit / rétention (P5)
+    from app.audit.routes import audit_bp
+    from app.retention.routes import retention_bp
+    application.register_blueprint(audit_bp, url_prefix='/api/audit')
+    application.register_blueprint(retention_bp, url_prefix='/api/admin/retention')
+
+    # Documentation OpenAPI (P6) : spécification générée depuis la carte des routes
+    from app.openapi import register_openapi
+    register_openapi(application, talisman)
+
+    # Commandes CLI (flask seed roles|folders|doctypes|departments|admin|demo|all)
+    from app.cli import register_commands
+    register_commands(application)
+
+    # Route de santé
+    @application.route('/health')
+    def health():
+        return {'status': 'ok'}, 200
+
+    # Readiness (healthcheck Docker) : base de données + Redis vérifiés (P5)
+    @application.route('/health/ready')
+    def health_ready():
+        checks = {}
+        ready = True
+        try:
+            db.session.execute(text('SELECT 1'))
+            checks['database'] = 'ok'
+        except Exception:
+            checks['database'] = 'error'
+            ready = False
+
+        if application.config.get('REDIS_URL'):
+            try:
+                import redis as redis_lib
+                client = redis_lib.Redis.from_url(
+                    application.config['REDIS_URL'], socket_connect_timeout=2)
+                client.ping()
+                checks['redis'] = 'ok'
+            except Exception:
+                checks['redis'] = 'error'
+                ready = False
+        else:
+            checks['redis'] = 'skipped'
+
+        return jsonify({'status': 'ready' if ready else 'degraded',
+                        'checks': checks}), (200 if ready else 503)
+
+    # Version déployée (P5 — §4.8)
+    @application.route('/api/version')
+    def api_version():
+        return jsonify({
+            'version': os.environ.get('APP_VERSION', '1.0.0'),
+            'commit': os.environ.get('GIT_COMMIT', 'unknown'),
+            'build_date': os.environ.get('APP_BUILD_DATE'),
+        }), 200
+
+    return application
