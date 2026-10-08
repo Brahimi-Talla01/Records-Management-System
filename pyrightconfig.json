@@ -1,0 +1,13 @@
+{
+  // Configuration de vérification Python (pyright / Pylance) — racine du projet.
+  // Le venv est dans backend/ : sans cela, pyright CLI utilise Python système
+  // et signale « Import "flask" could not be resolved » à tort.
+  "venvPath": ".",
+  "venv": "backend/venv",
+  "typeCheckingMode": "basic",
+  // Faux positifs des modèles Flask-SQLAlchemy : pyright ne connaît pas le
+  // `__init__(**kwargs)` généré par le déclaratif et signale « No parameter
+  // named "name" » sur TOUTE instanciation de modèle (80 occurrences, toutes
+  // valides à l'exécution). Le reste des règles reste actif.
+  "reportCallIssue": "none"
+}

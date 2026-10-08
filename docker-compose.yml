@@ -1,0 +1,158 @@
+# UniArchive - Stack complète (PostgreSQL + Redis + Backend + Frontend)
+#
+# Usage :
+#   docker compose up -d --build      # construire et démarrer
+#   docker compose logs -f backend    # suivre le backend (code 2FA en dev)
+#   docker compose down               # arrêter
+#   docker compose down -v            # arrêter ET supprimer les données
+#
+# L'application est servie sur http://localhost:8080 (frontend Nginx,
+# qui proxifie /api vers le backend).
+
+services:
+  # Base de données PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: uniarchive-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-uniarchive}
+      POSTGRES_USER: ${POSTGRES_USER:-uniarchive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uniarchive_dev_password}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-uniarchive} -d ${POSTGRES_DB:-uniarchive}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Redis (sessions + rate limiting)
+  redis:
+    image: redis:7-alpine
+    container_name: uniarchive-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # Backend Flask (gunicorn)
+  backend:
+    build: ./backend
+    container_name: uniarchive-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me-in-real-prod}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-uniarchive}:${POSTGRES_PASSWORD:-uniarchive_dev_password}@db:5432/${POSTGRES_DB:-uniarchive}
+      REDIS_URL: redis://redis:6379/0
+      RATELIMIT_STORAGE_URI: redis://redis:6379/1
+      # Cookies : derrière le proxy Nginx en HTTP local, Secure doit être off ;
+      # passez SESSION_COOKIE_SECURE=true quand le stack est derrière HTTPS.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_COOKIE_SAMESITE: Lax
+      # Redirection HTTPS : false en local (nginx sert en HTTP), true derrière un TLS réel
+      FORCE_HTTPS: ${FORCE_HTTPS:-false}
+      # Le backend est derrière le proxy nginx : faire confiance aux X-Forwarded-*
+      BEHIND_PROXY: "true"
+      # SMTP : laissez vide en dev → le code 2FA est loggé dans `docker compose logs backend`
+      MAIL_SERVER: ${MAIL_SERVER:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      # P0.10 : répertoire des fichiers uploadés monté sur un volume nommé
+      # (survit aux `docker compose down` / `up --build` du backend)
+      UPLOAD_FOLDER: /app/uploads
+      # OCR (P6) : langues Tesseract (réglage global features.ocr_enabled)
+      OCR_LANGUAGES: ${OCR_LANGUAGES:-fra+eng}
+      # Chiffrement au repos (P6) : 32 octets encodés en base64
+      #   python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+      FILE_ENCRYPTION_KEY: ${FILE_ENCRYPTION_KEY:-}
+      ENCRYPTED_LEVELS: ${ENCRYPTED_LEVELS:-confidential,secret}
+      # Stockage objet (P6) : passer STORAGE_BACKEND=s3 (bucket obligatoire)
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_PREFIX: ${S3_PREFIX:-uniarchive}
+      # MinIO : addressing « path » (true) ; AWS : laisser false
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      # Bootstrap du super admin (12-factor) : identifiants créés au démarrage
+      # si le compte n'existe pas. En production, ADMIN_PASSWORD est OBLIGATOIRE
+      # (le conteneur refuse de démarrer sans lui).
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@uniarchive.edu}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@2024}
+      ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Administrateur Principal}
+      ADMIN_MATRICULE: ${ADMIN_MATRICULE:-ADMIN001}
+      # Données de démonstration (documents PDF réels, tags) : installer une
+      # seule fois sur une base vierge. Ne JAMAIS activer en production.
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+    expose:
+      - "5000"
+    volumes:
+      - uploads_data:/app/uploads
+
+  # Job de rétention (plan 07 — P5) : exécute `flask retention run`
+  # périodiquement (préavis, archivage, purge selon archives.retention_*).
+  scheduler:
+    build: ./backend
+    container_name: uniarchive-scheduler
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: ["bash", "-c"]
+    command:
+      - |
+        echo "Scheduler de rétention démarré (intervalle : $${RETENTION_INTERVAL_SECONDS:-86400}s)"
+        while true; do
+          flask retention run || echo "retention run a échoué (voir logs)"
+          sleep "$${RETENTION_INTERVAL_SECONDS:-86400}"
+        done
+    environment:
+      FLASK_APP: wsgi.py
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me-in-real-prod}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-uniarchive}:${POSTGRES_PASSWORD:-uniarchive_dev_password}@db:5432/${POSTGRES_DB:-uniarchive}
+      REDIS_URL: redis://redis:6379/0
+      RETENTION_INTERVAL_SECONDS: ${RETENTION_INTERVAL_SECONDS:-86400}
+      UPLOAD_FOLDER: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
+
+  # Frontend (Nginx : build Vite + proxy /api)
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # URL d'API compilée dans le bundle (relative → même origine via Nginx)
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    container_name: uniarchive-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${APP_PORT:-8080}:80"
+
+volumes:
+  db_data:
+  # P0.10 — fichiers uploadés : persiste indépendamment des rebuilds du backend
+  uploads_data:
